@@ -1,16 +1,17 @@
 """
-Graphify Core — Backend FastAPI v2.0
+Graphify Core — Backend FastAPI v3.0
 =====================================
-Plataforma unificada: Grafo interactivo + Monitoreo SSE + Chatbot Gemini Graph-RAG.
+Plataforma unificada: GitHub Webhook + Grafo interactivo + Chatbot Gemini Graph-RAG.
 
 Endpoints:
-  GET  /                → Sirve index.html (frontend)
-  GET  /graph-view      → Sirve graphify-out/graph.html (grafo real interactivo)
-  GET  /api/activity    → Historial de actividades reales
-  GET  /api/stream      → SSE: broadcast en tiempo real desde webhook
-  POST /api/webhook/git → Webhook: inyecta actividad real y propaga vía SSE
-  POST /api/chat        → Chatbot Graph-RAG con Gemini API + graph.json
-  GET  /api/health      → Health check
+  GET  /                     → Sirve index.html (frontend)
+  GET  /graph-view           → Sirve graphify-out/graph.html (grafo real interactivo)
+  GET  /api/activity         → Historial de actividades reales
+  GET  /api/stream           → SSE: broadcast en tiempo real desde webhook
+  POST /api/webhook/github   → Webhook oficial de GitHub (push events)
+  POST /api/webhook/git      → Webhook genérico (compatibilidad)
+  POST /api/chat             → Chatbot Graph-RAG con Gemini API + graph.json
+  GET  /api/health           → Health check
 """
 
 from __future__ import annotations
@@ -31,7 +32,7 @@ from pydantic import BaseModel, Field
 
 # ═══════════════════════════════════════════════════
 #  CONFIGURACIÓN — API KEY DE GEMINI
-#  ═══════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════
 #  INYECTA TU API KEY AQUÍ o configúrala como variable
 #  de entorno:  set GEMINI_API_KEY=tu_clave_aqui
 #
@@ -44,7 +45,7 @@ GRAPH_JSON_PATH = BASE_DIR / "graphify-out" / "graph.json"
 GRAPH_HTML_PATH = BASE_DIR / "graphify-out" / "graph.html"
 FRONTEND_PATH   = BASE_DIR / "index.html"
 
-app = FastAPI(title="Graphify Core", version="2.0.0")
+app = FastAPI(title="Graphify Core", version="3.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -61,6 +62,7 @@ app.add_middleware(
 
 
 class WebhookPayload(BaseModel):
+    """Webhook genérico (compatibilidad con el endpoint anterior)."""
     developer: str    = Field(..., min_length=1)
     project: str      = Field(..., min_length=1)
     activity: str     = Field(..., min_length=1)
@@ -134,17 +136,55 @@ def _avatar(name: str) -> str:
     return (parts[0][0] + parts[-1][0]).upper() if len(parts) >= 2 else name[:2].upper()
 
 
-def _make_item(payload: WebhookPayload) -> ActivityItem:
-    return ActivityItem(
+def _make_item(developer: str, project: str, activity: str, impact: str, project_color: str | None = None) -> ActivityItem:
+    """Crea un ActivityItem y lo registra en el log + broadcast SSE."""
+    item = ActivityItem(
         id=str(uuid.uuid4())[:8],
-        developer=payload.developer,
-        developer_avatar=_avatar(payload.developer),
-        project=payload.project,
-        project_color=payload.project_color or _infer_color(payload.project),
-        activity=payload.activity,
+        developer=developer,
+        developer_avatar=_avatar(developer),
+        project=project,
+        project_color=project_color or _infer_color(project),
+        activity=activity,
         timestamp=datetime.now(timezone.utc).isoformat(),
-        impact=payload.impact,
+        impact=impact,
     )
+    activity_log.append(item)
+    if len(activity_log) > MAX_LOG:
+        activity_log.pop(0)
+    _broadcast(item.model_dump())
+    return item
+
+
+def _compute_impact(payload: dict) -> str:
+    """
+    Calcula el impacto dinámicamente desde un payload de GitHub.
+    - Alto: >3 archivos modificados, o keywords críticos en el mensaje.
+    - Medio: 2-3 archivos o mensajes relevantes.
+    - Bajo: 1 archivo, cambios menores.
+    """
+    critical_keywords = ["breaking", "migration", "refactor", "security", "hotfix", "urgent", "critical"]
+    commits = payload.get("commits", [])
+
+    total_added    = 0
+    total_removed  = 0
+    total_files    = 0
+
+    for commit in commits:
+        added   = commit.get("added", [])
+        removed = commit.get("removed", [])
+        modified = commit.get("modified", [])
+        total_files += len(added) + len(removed) + len(modified)
+
+    # Check commit messages for critical keywords
+    all_messages = " ".join(c.get("message", "").lower() for c in commits)
+    has_critical = any(kw in all_messages for kw in critical_keywords)
+
+    if has_critical or total_files > 3:
+        return "Alto"
+    elif total_files >= 2:
+        return "Medio"
+    else:
+        return "Bajo"
 
 
 # ──────────────────────────────────────────────
@@ -166,7 +206,6 @@ def search_graph_context(query: str, graph: dict, top_k: int = 8) -> list[dict]:
     """
     Búsqueda por palabras clave en IDs, labels y source_files
     de nodos e hiper-aristas del grafo.
-    Incluye bigramas para coincidencias más precisas.
     """
     tokens = re.findall(r"\w+", query.lower())
     words = set(tokens)
@@ -240,18 +279,12 @@ def _format_context(context: list[dict]) -> str:
 async def _call_gemini(prompt: str, context: list[dict]) -> tuple[str, str]:
     """
     Llama a la API de Gemini con contexto del knowledge graph.
-
-    Retorna: (respuesta_texto, fuente_usada)
-    - Si Gemini está configurado → respuesta generativa, fuente "gemini-api"
-    - Si no hay API Key → respuesta local basada en contexto, fuente "graph-local"
     """
     context_text = _format_context(context)
 
-    # ── Sin API Key → respuesta local ──
     if not GEMINI_API_KEY:
         return _local_response(prompt, context), "graph-local"
 
-    # ── Con API Key → llamada real a Gemini ──
     try:
         import google.generativeai as genai
 
@@ -274,7 +307,6 @@ async def _call_gemini(prompt: str, context: list[dict]) -> tuple[str, str]:
         return response.text, "gemini-api"
 
     except Exception as e:
-        # Si Gemini falla, caer a respuesta local con aviso
         local = _local_response(prompt, context)
         fallback = (
             f"{local}\n\n"
@@ -335,20 +367,95 @@ async def get_activity():
     return [item.model_dump() for item in reversed(activity_log)]
 
 
+# ── Webhook oficial de GitHub ──────────────────
+
+@app.post("/api/webhook/github")
+async def webhook_github(request: Request):
+    """
+    Receptor oficial de GitHub Webhooks para eventos 'push'.
+
+    Configura en tu repo de GitHub:
+      Payload URL: http://tu-servidor:8000/api/webhook/github
+      Content type: application/json
+      Events: Just the push event
+
+    Extrae dinámicamente:
+      - proyecto:   payload["repository"]["name"]
+      - desarrollador: payload["pusher"]["name"] o commits[0]["author"]["name"]
+      - actividad:  payload["commits"][0]["message"]
+      - impacto:    calculado (>3 archivos = Alto, 2-3 = Medio, 1 = Bajo)
+    """
+    try:
+        payload = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Payload JSON inválido"}, status_code=400)
+
+    event = request.headers.get("x-github-event", "push")
+
+    # Solo procesamos push events
+    if event != "push":
+        return {"status": "skipped", "reason": f"Evento '{event}' no soportado. Solo 'push'."}
+
+    # Extraer datos del payload estándar de GitHub
+    repo_name = payload.get("repository", {}).get("name", "unknown")
+    commits   = payload.get("commits", [])
+
+    if not commits:
+        return {"status": "skipped", "reason": "Push sin commits."}
+
+    # Desarrollador: pusher > primer commit author
+    developer = (
+        payload.get("pusher", {}).get("name")
+        or commits[0].get("author", {}).get("name")
+        or "unknown"
+    )
+
+    # Actividad: mensaje del primer commit (truncado a 120 chars)
+    activity = commits[0].get("message", "Sin mensaje")[:120]
+
+    # Si hay múltiples commits, indicar cuántos
+    if len(commits) > 1:
+        activity = f"{activity} (+{len(commits)-1} más)"
+
+    # Impacto dinámico basado en archivos modificados
+    impact = _compute_impact(payload)
+
+    item = _make_item(
+        developer=developer,
+        project=repo_name,
+        activity=activity,
+        impact=impact,
+    )
+
+    return {
+        "status": "ok",
+        "id": item.id,
+        "developer": developer,
+        "project": repo_name,
+        "impact": impact,
+        "commits_processed": len(commits),
+        "sse_clients": len(sse_clients),
+    }
+
+
+# ── Webhook genérico (compatibilidad) ─────────
+
 @app.post("/api/webhook/git")
 async def webhook_git(payload: WebhookPayload):
     """
-    Recibe datos reales y los propaga en tiempo real vía SSE.
+    Webhook genérico para inyectar actividad manualmente.
 
     curl -X POST http://localhost:8000/api/webhook/git \
       -H "Content-Type: application/json" \
-      -d '{"developer":"Juan Pérez","project":"Graphify API","activity":"Implementó búsqueda semántica","impact":"Alto"}'
+      -d '{"developer":"Juan Mora","project":"Graphify API","activity":"Deploy exitoso","impact":"Alto"}'
     """
-    item = _make_item(payload)
-    activity_log.append(item)
-    if len(activity_log) > MAX_LOG:
-        activity_log.pop(0)
-    _broadcast(item.model_dump())
+    item = _make_item(
+        developer=payload.developer,
+        project=payload.project,
+        activity=payload.activity,
+        impact=payload.impact,
+        project_color=payload.project_color,
+    )
     return {
         "status": "ok",
         "id": item.id,
@@ -407,7 +514,7 @@ async def health_check():
     graph = load_graph()
     return {
         "status": "ok",
-        "version": "2.0.0",
+        "version": "3.0.0",
         "graph_loaded": bool(graph.get("nodes") or graph.get("hyperedges")),
         "graph_nodes": len(graph.get("nodes", [])),
         "graph_edges": len(graph.get("hyperedges", [])),

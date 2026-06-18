@@ -5,580 +5,548 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Graphify Core</title>
 
-    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        bg:   { DEFAULT: '#08080a', raised: '#0c0c0e', surface: '#101013', hover: '#141418' },
-                        brd:  { DEFAULT: '#1c1c21', light: '#2a2a30' },
-                        acc:  { DEFAULT: '#6366f1', light: '#818cf8', dim: '#4f46e5', glow: 'rgba(99,102,241,0.15)' },
-                        live: '#22c55e',
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],
-                    },
-                },
-            },
+            theme: { extend: { fontFamily: {
+                sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                mono: ['JetBrains Mono', 'Fira Code', 'Consolas', 'monospace'],
+            }}}
         }
     </script>
 
-    <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
-    <!-- Lucide Icons CDN -->
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 
     <style>
-        /* ── Base ────────────────────────────────────── */
+        /* ═══════════════════════════════════════════
+           THEME VARIABLES
+           ═══════════════════════════════════════════ */
+        :root {
+            --bg:          #09090b;
+            --bg-raised:   #0f0f12;
+            --bg-surface:  #18181b;
+            --bg-hover:    #1e1e22;
+            --bg-thead:    #141417;
+            --brd:         #27272a;
+            --brd-row:     #1f1f23;
+            --brd-col:     #1a1a1e;
+            --brd-light:   #3f3f46;
+            --text-1:      #fafafa;
+            --text-2:      #d4d4d8;
+            --text-3:      #a1a1aa;
+            --text-4:      #71717a;
+            --text-5:      #52525b;
+            --acc:         #6366f1;
+            --acc-light:   #818cf8;
+            --live:        #22c55e;
+            --sidebar-w:   240px;
+            --sidebar-cw:  56px;
+            --chat-user-bg: #4f46e5;
+            --chat-ai-bg:   #18181b;
+            --shadow-card:  0 1px 3px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.02);
+            --shadow-input: 0 2px 8px rgba(0,0,0,0.3), 0 0 0 1px rgba(99,102,241,0.06);
+        }
+        .light {
+            --bg:          #ffffff;
+            --bg-raised:   #fafafa;
+            --bg-surface:  #f4f4f5;
+            --bg-hover:    #e4e4e7;
+            --bg-thead:    #f4f4f5;
+            --brd:         #e4e4e7;
+            --brd-row:     #f0f0f2;
+            --brd-col:     #e4e4e7;
+            --brd-light:   #d4d4d8;
+            --text-1:      #09090b;
+            --text-2:      #27272a;
+            --text-3:      #52525b;
+            --text-4:      #71717a;
+            --text-5:      #a1a1aa;
+            --acc:         #4f46e5;
+            --acc-light:   #6366f1;
+            --live:        #16a34a;
+            --chat-user-bg: #4f46e5;
+            --chat-ai-bg:   #f4f4f5;
+            --shadow-card:  0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+            --shadow-input:  0 2px 8px rgba(0,0,0,0.06), 0 0 0 1px rgba(99,102,241,0.04);
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Inter', system-ui, sans-serif;
-            background: #08080a;
-            color: #d4d4d8;
-            overflow: hidden;
-            height: 100vh;
-        }
+        body { font-family: 'Inter', system-ui, sans-serif; background: var(--bg); color: var(--text-2); overflow: hidden; height: 100vh; transition: background 0.25s, color 0.25s; }
 
-        /* ── Scrollbar ───────────────────────────────── */
-        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar { width: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #2a2a30; border-radius: 8px; }
-        ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+        ::-webkit-scrollbar-thumb { background: var(--brd-light); border-radius: 8px; }
 
-        /* ── Live pulse ──────────────────────────────── */
-        @keyframes pulse-live {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: .4; transform: scale(1.6); }
-        }
+        @keyframes pulse-live { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.3;transform:scale(1.8)} }
         .live-pulse { animation: pulse-live 2s ease-in-out infinite; }
 
-        /* ── Row animations ──────────────────────────── */
-        @keyframes slide-in {
-            from { opacity: 0; transform: translateY(-8px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes row-flash {
-            0%   { background: rgba(99,102,241,0.10); }
-            100% { background: transparent; }
-        }
-        .row-enter { animation: slide-in 0.35s cubic-bezier(0.16,1,0.3,1) forwards, row-flash 1.6s ease-out forwards; }
+        @keyframes slide-in { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes row-flash { 0%{background:rgba(99,102,241,0.10)} 100%{background:transparent} }
+        .row-enter { animation: slide-in 0.3s cubic-bezier(0.16,1,0.3,1) forwards, row-flash 2s ease-out forwards; }
 
-        /* ── Chat animation ──────────────────────────── */
-        @keyframes fade-up {
-            from { opacity: 0; transform: translateY(6px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
+        @keyframes fade-up { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
         .msg-enter { animation: fade-up 0.25s ease-out forwards; }
 
-        /* ── Sidebar nav ─────────────────────────────── */
-        .nav-item {
-            transition: all 0.12s;
-            border-left: 2px solid transparent;
-        }
-        .nav-item:hover { background: rgba(99,102,241,0.05); border-left-color: rgba(99,102,241,0.25); }
-        .nav-item.active { background: rgba(99,102,241,0.07); border-left-color: #6366f1; color: #e4e4e7; }
+        /* ── Sidebar ──────────────────────────────── */
+        .sidebar { width:var(--sidebar-w); min-width:var(--sidebar-w); transition:width 0.28s cubic-bezier(0.16,1,0.3,1), min-width 0.28s cubic-bezier(0.16,1,0.3,1); background:var(--bg-raised); border-right:1px solid var(--brd); display:flex; flex-direction:column; }
+        .sidebar.collapsed { width:var(--sidebar-cw); min-width:var(--sidebar-cw); }
+        .sidebar.collapsed .nav-label, .sidebar.collapsed .logo-text, .sidebar.collapsed .sse-label { display:none; }
+        .sidebar.collapsed .nav-item { justify-content:center; padding-left:0; padding-right:0; }
+        .sidebar.collapsed .collapse-icon { transform:rotate(180deg); }
+        .nav-item { display:flex; align-items:center; gap:10px; padding:9px 14px; border-radius:8px; font-size:13px; font-weight:500; color:var(--text-3); cursor:pointer; transition:all 0.15s; border-left:2px solid transparent; margin:0 8px; }
+        .nav-item:hover { color:var(--text-1); background:var(--bg-hover); }
+        .nav-item.active { color:var(--acc-light); background:rgba(99,102,241,0.08); border-left-color:var(--acc); }
 
-        /* ── Impact badges ───────────────────────────── */
-        .impact-alto  { background: rgba(239,68,68,0.08); color: #f87171; border: 1px solid rgba(239,68,68,0.18); }
-        .impact-medio { background: rgba(245,158,11,0.08); color: #fbbf24; border: 1px solid rgba(245,158,11,0.18); }
-        .impact-bajo  { background: rgba(34,197,94,0.08);  color: #4ade80; border: 1px solid rgba(34,197,94,0.18); }
+        /* ── Badges ───────────────────────────────── */
+        .badge-blue   { background:rgba(59,130,246,0.10);  color:#60a5fa; border:1px solid rgba(59,130,246,0.18); }
+        .badge-violet { background:rgba(139,92,246,0.10);  color:#a78bfa; border:1px solid rgba(139,92,246,0.18); }
+        .badge-green  { background:rgba(34,197,94,0.10);   color:#4ade80; border:1px solid rgba(34,197,94,0.18); }
+        .badge-amber  { background:rgba(245,158,11,0.10);  color:#fbbf24; border:1px solid rgba(245,158,11,0.18); }
+        .badge-rose   { background:rgba(244,63,94,0.10);   color:#fb7185; border:1px solid rgba(244,63,94,0.18); }
+        .light .badge-blue   { background:rgba(59,130,246,0.08);  color:#2563eb; border-color:rgba(59,130,246,0.20); }
+        .light .badge-violet { background:rgba(139,92,246,0.08);  color:#7c3aed; border-color:rgba(139,92,246,0.20); }
+        .light .badge-green  { background:rgba(34,197,94,0.08);   color:#16a34a; border-color:rgba(34,197,94,0.20); }
+        .light .badge-amber  { background:rgba(245,158,11,0.08);  color:#d97706; border-color:rgba(245,158,11,0.20); }
+        .light .badge-rose   { background:rgba(244,63,94,0.08);   color:#e11d48; border-color:rgba(244,63,94,0.20); }
 
-        /* ── Project badges ──────────────────────────── */
-        .badge-blue   { background: rgba(59,130,246,0.10);  color: #60a5fa; }
-        .badge-violet { background: rgba(139,92,246,0.10);  color: #a78bfa; }
-        .badge-green  { background: rgba(34,197,94,0.10);   color: #4ade80; }
-        .badge-amber  { background: rgba(245,158,11,0.10);  color: #fbbf24; }
-        .badge-rose   { background: rgba(244,63,94,0.10);   color: #fb7185; }
+        /* ── LED ──────────────────────────────────── */
+        @keyframes led-glow { 0%,100%{box-shadow:0 0 3px 1px currentColor} 50%{box-shadow:0 0 7px 2px currentColor} }
+        .led { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+        .led-alto  { background:#f87171; color:#f87171; animation:led-glow 2.5s ease-in-out infinite; }
+        .led-medio { background:#eab308; color:#eab308; animation:led-glow 2.5s ease-in-out infinite; }
+        .led-bajo  { background:#22c55e; color:#22c55e; animation:led-glow 2.5s ease-in-out infinite; }
 
-        /* ── Typing indicator ────────────────────────── */
-        @keyframes typing-bounce {
-            0%,60%,100% { transform: translateY(0); }
-            30%         { transform: translateY(-3px); }
-        }
-        .typing-dot {
-            display: inline-block; width: 5px; height: 5px;
-            border-radius: 50%; background: #6366f1;
-            animation: typing-bounce 1.4s infinite;
-        }
-        .typing-dot:nth-child(2) { animation-delay: 0.15s; }
-        .typing-dot:nth-child(3) { animation-delay: 0.3s; }
+        /* ── Avatars ──────────────────────────────── */
+        .avatar-grad-0{background:linear-gradient(135deg,#6366f1,#8b5cf6)} .avatar-grad-1{background:linear-gradient(135deg,#3b82f6,#6366f1)}
+        .avatar-grad-2{background:linear-gradient(135deg,#10b981,#34d399)} .avatar-grad-3{background:linear-gradient(135deg,#f59e0b,#fbbf24)}
+        .avatar-grad-4{background:linear-gradient(135deg,#ef4444,#f9716)} .avatar-grad-5{background:linear-gradient(135deg,#ec4899,#f472b6)}
+        .avatar-grad-6{background:linear-gradient(135deg,#14b8a6,#2dd4bf)} .avatar-grad-7{background:linear-gradient(135deg,#8b5cf6,#c084fc)}
 
-        /* ── Graph iframe ────────────────────────────── */
-        .graph-iframe {
-            border: none; width: 100%; height: 100%;
-            background: #08080a;
-        }
+        /* ── Typing ───────────────────────────────── */
+        @keyframes typing-bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-3px)} }
+        .typing-dot { display:inline-block; width:5px; height:5px; border-radius:50%; background:var(--acc); animation:typing-bounce 1.4s infinite; }
+        .typing-dot:nth-child(2){animation-delay:.15s} .typing-dot:nth-child(3){animation-delay:.3s}
 
-        /* ── SSE status dot ──────────────────────────── */
-        .sse-dot { width: 6px; height: 6px; border-radius: 50%; transition: background 0.3s; flex-shrink: 0; }
-        .sse-on  { background: #22c55e; }
-        .sse-off { background: #ef4444; }
-        .sse-wait{ background: #f59e0b; animation: pulse-live 1s ease-in-out infinite; }
+        .graph-iframe { border:none; width:100%; height:100%; border-radius:10px; }
 
-        /* ── Resizer handle ──────────────────────────── */
-        .resizer {
-            height: 1px; background: #1c1c21;
-            cursor: row-resize; position: relative; flex-shrink: 0;
-        }
-        .resizer::after {
-            content: ''; position: absolute;
-            left: 50%; top: -4px; transform: translateX(-50%);
-            width: 32px; height: 8px; border-radius: 4px;
-            background: transparent; transition: background 0.2s;
-        }
-        .resizer:hover::after { background: rgba(99,102,241,0.15); }
+        .sse-dot { width:6px; height:6px; border-radius:50%; transition:background 0.3s; flex-shrink:0; }
+        .sse-on{background:var(--live)} .sse-off{background:#ef4444} .sse-wait{background:#f59e0b;animation:pulse-live 1s ease-in-out infinite}
+
+        .filter-card { background:var(--bg-raised); border:1px solid var(--brd); border-radius:10px; padding:12px 14px; transition:border-color 0.2s, box-shadow 0.2s; }
+        .filter-card:hover { border-color:var(--brd-light); }
+        .filter-card:focus-within { border-color:rgba(99,102,241,0.30); box-shadow:0 0 0 1px rgba(99,102,241,0.08); }
+
+        /* ── Table Card ───────────────────────────── */
+        .table-card { background:var(--bg-raised); border:1px solid var(--brd); border-radius:12px; overflow:hidden; box-shadow:var(--shadow-card); }
+        .table-row { border-bottom:1px solid var(--brd-row); transition:background 0.12s; }
+        .table-row:hover { background:var(--bg-hover); }
+        .table-cell-border { border-right:1px solid var(--brd-col); }
+
+        /* ── Select ───────────────────────────────── */
+        select { -webkit-appearance:none; -moz-appearance:none; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; padding-right:28px; }
+
+        .theme-btn { width:36px; height:36px; border-radius:10px; border:1px solid var(--brd); background:var(--bg-surface); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.2s; color:var(--text-3); }
+        .theme-btn:hover { border-color:var(--acc); color:var(--acc-light); background:rgba(99,102,241,0.06); }
+
+        /* ── Graph Monitor Frame ──────────────────── */
+        .graph-frame { background:#000; border:1px solid var(--brd); border-radius:14px; overflow:hidden; box-shadow:var(--shadow-card), inset 0 0 40px rgba(0,0,0,0.4); }
+
+        /* ── Chat ─────────────────────────────────── */
+        .chat-container { display:flex; flex-direction:column; height:100%; max-width:780px; margin:0 auto; width:100%; }
+        .chat-input-wrap { background:var(--bg-raised); border:1px solid var(--brd); border-radius:16px; box-shadow:var(--shadow-input); transition:border-color 0.2s, box-shadow 0.2s; }
+        .chat-input-wrap:focus-within { border-color:rgba(99,102,241,0.35); box-shadow:0 4px 16px rgba(0,0,0,0.15), 0 0 0 2px rgba(99,102,241,0.10); }
+        .chat-bubble-user { background:var(--chat-user-bg); color:#fff; border-radius:16px 16px 4px 16px; padding:10px 16px; max-width:80%; }
+        .chat-bubble-ai { background:var(--chat-ai-bg); border:1px solid var(--brd); border-radius:16px 16px 16px 4px; padding:10px 16px; max-width:85%; }
+        .light .chat-bubble-ai { background:#f4f4f5; }
+
+        /* ── Suggestion Chips ─────────────────────── */
+        .chip { display:inline-flex; align-items:center; gap:4px; padding:6px 14px; border-radius:20px; font-size:12px; font-weight:500; border:1px solid var(--brd); background:var(--bg-surface); color:var(--text-3); cursor:pointer; transition:all 0.18s; }
+        .chip:hover { border-color:var(--acc); color:var(--acc-light); background:rgba(99,102,241,0.06); }
+
+        .dark input[type="date"]{color-scheme:dark} .light input[type="date"]{color-scheme:light}
     </style>
 </head>
 
-<body class="flex h-screen bg-bg">
+<body class="flex h-screen">
 
     <!-- ╔══════════════════════════════════════════╗
-         ║  SIDEBAR IZQUIERDO                      ║
+         ║  SIDEBAR IZQUIERDO                       ║
          ╚══════════════════════════════════════════╝ -->
-    <aside class="w-[52px] flex-shrink-0 border-r border-brd bg-bg-raised flex flex-col items-center">
-        <!-- Logo -->
-        <div class="w-full h-12 flex items-center justify-center border-b border-brd">
-            <div class="w-7 h-7 rounded-lg bg-acc/15 flex items-center justify-center">
-                <i data-lucide="zap" class="w-3.5 h-3.5 text-acc-light"></i>
+    <aside class="sidebar" id="sidebar">
+        <div class="flex items-center justify-between h-14 px-4 border-b" style="border-color:var(--brd)">
+            <div class="flex items-center gap-2.5 overflow-hidden">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style="background:rgba(99,102,241,0.12)">
+                    <i data-lucide="zap" class="w-4 h-4" style="color:var(--acc-light)"></i>
+                </div>
+                <div class="logo-text min-w-0">
+                    <p class="text-[13px] font-semibold tracking-[-0.02em] truncate" style="color:var(--text-1)">Graphify</p>
+                    <p class="text-[9px] font-mono" style="color:var(--text-5)">Core v3.0</p>
+                </div>
             </div>
+            <button onclick="toggleSidebar()" class="w-7 h-7 rounded-md flex items-center justify-center transition-all flex-shrink-0 hover:opacity-80" style="color:var(--text-4)">
+                <i data-lucide="panel-left-close" class="w-4 h-4 collapse-icon" style="transition:transform 0.28s"></i>
+            </button>
         </div>
-
-        <!-- Nav icons -->
-        <nav class="flex-1 flex flex-col items-center pt-3 gap-1 w-full px-1.5">
-            <button onclick="switchView('console')" id="nav-console" title="Consola Unificada"
-                class="nav-item active w-full flex items-center justify-center py-2 rounded-md text-zinc-500">
-                <i data-lucide="layout-dashboard" class="w-4 h-4"></i>
+        <nav class="flex-1 flex flex-col pt-3 gap-0.5 overflow-y-auto overflow-x-hidden">
+            <div class="px-4 mb-1.5"><p class="text-[9px] uppercase tracking-[0.1em] font-semibold nav-label" style="color:var(--text-5)">Navegación</p></div>
+            <button onclick="navigate('tabla')" id="nav-tabla" class="nav-item active" title="Actividad en Vivo">
+                <i data-lucide="activity" class="w-[18px] h-[18px] flex-shrink-0"></i><span class="nav-label truncate">Actividad en Vivo</span>
             </button>
-            <button onclick="switchView('graph')" id="nav-graph" title="Ver Grafo"
-                class="nav-item w-full flex items-center justify-center py-2 rounded-md text-zinc-500">
-                <i data-lucide="share-2" class="w-4 h-4"></i>
+            <button onclick="navigate('graph')" id="nav-graph" class="nav-item" title="Ver Grafo Real">
+                <i data-lucide="share-2" class="w-[18px] h-[18px] flex-shrink-0"></i><span class="nav-label truncate">Ver Grafo Real</span>
             </button>
-            <button onclick="switchView('docs')" id="nav-docs" title="Documentación"
-                class="nav-item w-full flex items-center justify-center py-2 rounded-md text-zinc-500">
-                <i data-lucide="file-text" class="w-4 h-4"></i>
+            <button onclick="navigate('chat')" id="nav-chat" class="nav-item" title="Asistente IA">
+                <i data-lucide="sparkles" class="w-[18px] h-[18px] flex-shrink-0"></i><span class="nav-label truncate">Asistente IA</span>
             </button>
+            <div class="my-3 mx-4" style="border-top:1px solid var(--brd)"></div>
+            <div class="px-4 mb-1.5"><p class="text-[9px] uppercase tracking-[0.1em] font-semibold nav-label" style="color:var(--text-5)">Sistema</p></div>
+            <div class="nav-item" style="cursor:default">
+                <span class="sse-dot sse-wait flex-shrink-0" id="sse-dot"></span>
+                <span class="nav-label text-[11px]" style="color:var(--text-4)" id="sse-label">Conectando...</span>
+            </div>
         </nav>
-
-        <!-- SSE indicator -->
-        <div class="pb-2 flex flex-col items-center gap-1.5">
-            <span class="sse-dot sse-wait" id="sse-dot"></span>
-        </div>
-
-        <!-- Profile -->
-        <div class="w-full py-3 border-t border-brd flex items-center justify-center">
-            <div class="w-6 h-6 rounded-full bg-acc/20 flex items-center justify-center text-[9px] font-semibold text-acc-light">
-                U
+        <div class="flex items-center justify-between px-3 py-3 border-t" style="border-color:var(--brd)">
+            <button onclick="toggleTheme()" class="theme-btn" id="theme-btn" title="Cambiar tema">
+                <i data-lucide="sun" class="w-4 h-4" id="theme-icon-sun" style="display:none"></i>
+                <i data-lucide="moon" class="w-4 h-4" id="theme-icon-moon"></i>
+            </button>
+            <div class="flex items-center gap-2.5 nav-label overflow-hidden">
+                <div class="w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-semibold flex-shrink-0" style="background:rgba(99,102,241,0.15);color:var(--acc-light)">U</div>
+                <span class="text-[11px] font-medium truncate" style="color:var(--text-3)">Usuario</span>
             </div>
         </div>
     </aside>
 
     <!-- ╔══════════════════════════════════════════╗
-         ║  ÁREA PRINCIPAL                         ║
+         ║  ÁREA PRINCIPAL                          ║
          ╚══════════════════════════════════════════╝ -->
     <div class="flex-1 flex flex-col min-w-0">
 
-        <!-- ── Topbar ────────────────────────────────── -->
-        <header class="h-11 flex-shrink-0 border-b border-brd bg-bg-raised/60 backdrop-blur-sm flex items-center justify-between px-5">
-            <div class="flex items-center gap-3">
-                <h1 class="text-[13px] font-semibold text-zinc-100 tracking-tight">Graphify Core</h1>
-                <span class="text-[10px] font-mono text-zinc-600 bg-bg-surface px-1.5 py-0.5 rounded">v2.0</span>
-                <!-- Streaming indicator -->
-                <div class="flex items-center gap-1.5 ml-2 px-2 py-0.5 rounded-full bg-live/8 border border-live/15">
-                    <span class="live-pulse w-1.5 h-1.5 rounded-full bg-live"></span>
-                    <span class="text-[10px] font-medium text-live/90">Streaming</span>
+        <!-- Topbar -->
+        <header class="h-12 flex-shrink-0 border-b flex items-center justify-between px-6" style="background:var(--bg-raised);border-color:var(--brd)">
+            <div class="flex items-center gap-4">
+                <h1 id="page-title" class="text-[14px] font-semibold tracking-[-0.02em]" style="color:var(--text-1)">Trazabilidad de Cambios</h1>
+                <div id="live-badge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-full" style="background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.15)">
+                    <span class="live-pulse w-[5px] h-[5px] rounded-full" style="background:var(--live)"></span>
+                    <span class="text-[10px] font-medium tracking-wide" style="color:var(--live)">Tiempo Real</span>
                 </div>
             </div>
-            <div class="flex items-center gap-3 text-[10px] text-zinc-600">
-                <span id="clock" class="font-mono tabular-nums"></span>
-            </div>
+            <span id="clock" class="text-[10px] font-mono tabular-nums" style="color:var(--text-4)"></span>
         </header>
 
-        <!-- ── Content ───────────────────────────────── -->
-        <div class="flex-1 flex min-h-0">
+        <!-- Content -->
+        <div class="flex-1 overflow-hidden relative">
 
-            <!-- Central Column (Graph + Table) -->
-            <div class="flex-1 flex flex-col min-w-0">
-
-                <!-- Upper: Graph iframe (45%) -->
-                <div class="relative" style="height: 45%;" id="graph-panel">
-                    <iframe
-                        src="/graph-view"
-                        class="graph-iframe"
-                        id="graph-iframe"
-                        title="Knowledge Graph"
-                        loading="lazy"
-                    ></iframe>
-                    <!-- Overlay label -->
-                    <div class="absolute top-3 left-4 flex items-center gap-2 pointer-events-none select-none">
-                        <span class="text-[10px] font-medium text-zinc-500 bg-bg/70 backdrop-blur-sm px-2 py-0.5 rounded border border-brd/50">
-                            Knowledge Graph
-                        </span>
+            <!-- ═══════ VISTA: TABLA ═══════ -->
+            <div id="view-tabla" class="absolute inset-0 flex flex-col overflow-hidden">
+                <!-- Filtros -->
+                <div class="flex-shrink-0 px-6 pt-5 pb-3">
+                    <div class="grid grid-cols-3 gap-3">
+                        <div class="filter-card">
+                            <label class="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.08em] font-semibold mb-2" style="color:var(--text-5)">
+                                <i data-lucide="folder" class="w-3 h-3"></i> Filtrar Proyecto
+                            </label>
+                            <select id="filter-project" class="w-full bg-transparent text-[12px] font-medium focus:outline-none cursor-pointer" style="color:var(--text-2)"><option value="">Todos los proyectos</option></select>
+                        </div>
+                        <div class="filter-card">
+                            <label class="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.08em] font-semibold mb-2" style="color:var(--text-5)">
+                                <i data-lucide="user" class="w-3 h-3"></i> Filtrar Desarrollador
+                            </label>
+                            <select id="filter-developer" class="w-full bg-transparent text-[12px] font-medium focus:outline-none cursor-pointer" style="color:var(--text-2)"><option value="">Todos los desarrolladores</option></select>
+                        </div>
+                        <div class="filter-card">
+                            <label class="flex items-center gap-1.5 text-[9px] uppercase tracking-[0.08em] font-semibold mb-2" style="color:var(--text-5)">
+                                <i data-lucide="calendar" class="w-3 h-3"></i> Rango de Fecha
+                            </label>
+                            <div class="flex items-center gap-2">
+                                <input id="filter-date-from" type="date" class="w-full bg-transparent text-[12px] font-medium focus:outline-none cursor-pointer" style="color:var(--text-2)" />
+                                <span class="text-[10px] font-medium" style="color:var(--text-5)">→</span>
+                                <input id="filter-date-to" type="date" class="w-full bg-transparent text-[12px] font-medium focus:outline-none cursor-pointer" style="color:var(--text-2)" />
+                            </div>
+                        </div>
                     </div>
                 </div>
-
-                <!-- Resizer handle -->
-                <div class="resizer" id="resizer"></div>
-
-                <!-- Lower: Activity Table (55%) -->
-                <div class="flex-1 flex flex-col min-h-0" id="table-panel">
-                    <!-- Table header bar -->
-                    <div class="flex-shrink-0 px-5 py-2 flex items-center justify-between border-b border-brd/50">
-                        <div class="flex items-center gap-2">
-                            <i data-lucide="activity" class="w-3 h-3 text-zinc-500"></i>
-                            <span class="text-[11px] font-medium text-zinc-400">Actividad en Tiempo Real</span>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <span class="text-[10px] text-zinc-600 font-mono"><span id="activity-count">0</span> eventos</span>
-                            <button onclick="clearActivity()" class="text-[10px] text-zinc-600 hover:text-zinc-300 transition-colors">
-                                Limpiar
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Table -->
-                    <div class="flex-1 overflow-y-auto" id="table-scroll">
-                        <!-- Empty state -->
-                        <div id="empty-state" class="flex flex-col items-center justify-center h-full text-center px-6">
-                            <div class="w-12 h-12 rounded-xl bg-bg-surface flex items-center justify-center mb-4">
-                                <i data-lucide="inbox" class="w-5 h-5 text-zinc-600"></i>
+                <!-- Tabla -->
+                <div class="flex-1 px-6 pb-5 overflow-hidden flex flex-col">
+                    <div class="table-card flex-1 flex flex-col min-h-0">
+                        <div class="flex-shrink-0 px-5 py-2.5 flex items-center justify-between border-b" style="border-color:var(--brd)">
+                            <div class="flex items-center gap-2">
+                                <i data-lucide="git-branch" class="w-3.5 h-3.5" style="color:var(--text-4)"></i>
+                                <span class="text-[11px] font-semibold" style="color:var(--text-3)">Commits en Tiempo Real</span>
                             </div>
-                            <p class="text-[12px] text-zinc-500 mb-1">Sin actividad registrada</p>
-                            <p class="text-[10px] text-zinc-600 max-w-sm leading-relaxed mb-4">
-                                Los eventos aparecerán aquí en tiempo real cuando se envíen datos al webhook.
-                            </p>
-                            <div class="bg-bg-surface rounded-lg p-3 text-left max-w-lg w-full border border-brd/40">
-                                <p class="text-[9px] uppercase tracking-wider text-zinc-600 font-medium mb-1.5">Ejemplo con curl:</p>
-                                <code class="text-[10px] font-mono text-zinc-500 leading-relaxed block whitespace-pre-wrap">curl -X POST http://localhost:8000/api/webhook/git \
-  -H "Content-Type: application/json" \
-  -d '{"developer":"Juan Perez","project":"Graphify API","activity":"Deploy exitoso","impact":"Alto"}'</code>
+                            <div class="flex items-center gap-4">
+                                <span class="text-[10px] font-mono font-medium" style="color:var(--text-5)"><span id="activity-count">0</span> commits</span>
+                                <button onclick="clearActivity()" class="text-[10px] px-2 py-1 rounded-md font-medium transition-colors" style="color:var(--text-5)">Limpiar</button>
                             </div>
                         </div>
-
-                        <!-- Table (hidden initially) -->
-                        <table class="w-full hidden" id="activity-table">
-                            <thead class="sticky top-0 z-10">
-                                <tr class="text-[10px] uppercase tracking-wider text-zinc-600 font-medium">
-                                    <th class="text-left py-2.5 px-5 bg-bg w-[180px]">Desarrollador</th>
-                                    <th class="text-left py-2.5 px-3 bg-bg w-[150px]">Proyecto</th>
-                                    <th class="text-left py-2.5 px-3 bg-bg">Actividad</th>
-                                    <th class="text-left py-2.5 px-3 bg-bg w-[80px]">Hora</th>
-                                    <th class="text-left py-2.5 px-5 bg-bg w-[80px]">Impacto</th>
-                                </tr>
-                            </thead>
-                            <tbody id="activity-body" class="divide-y divide-brd/30"></tbody>
-                        </table>
+                        <div class="flex-1 overflow-y-auto min-h-0" id="table-scroll">
+                            <div id="empty-state" class="flex flex-col items-center justify-center h-full text-center px-6">
+                                <div class="w-16 h-16 rounded-2xl flex items-center justify-center mb-5 border" style="background:var(--bg-surface);border-color:var(--brd)">
+                                    <i data-lucide="git-pull-request" class="w-7 h-7" style="color:var(--text-5)"></i>
+                                </div>
+                                <p class="text-[14px] font-semibold mb-2" style="color:var(--text-2)">Esperando pushes reales en tu repositorio de GitHub...</p>
+                                <p class="text-[12px] max-w-md leading-relaxed mb-6" style="color:var(--text-4)">Configura un webhook en tu repositorio. Los commits aparecerán aquí al instante.</p>
+                                <div class="rounded-xl p-4 text-left max-w-xl w-full border" style="background:var(--bg-surface);border-color:var(--brd)">
+                                    <p class="text-[9px] uppercase tracking-wider font-semibold mb-2" style="color:var(--text-5)">GitHub → Settings → Webhooks:</p>
+                                    <code class="text-[11px] font-mono leading-[1.8] block whitespace-pre-wrap" style="color:var(--text-3)">Payload URL:  http://tu-servidor:8000/api/webhook/github
+Content type: application/json
+Events:       Just the push event</code>
+                                </div>
+                            </div>
+                            <table class="w-full hidden" id="activity-table">
+                                <thead class="sticky top-0 z-10">
+                                    <tr style="background:var(--bg-thead); border-bottom:1px solid var(--brd)">
+                                        <th class="text-left py-3 px-4 font-semibold text-[10px] uppercase tracking-[0.06em] table-cell-border w-[190px]" style="color:var(--text-4);background:var(--bg-thead)">Desarrollador</th>
+                                        <th class="text-left py-3 px-3 font-semibold text-[10px] uppercase tracking-[0.06em] table-cell-border w-[140px]" style="color:var(--text-4);background:var(--bg-thead)">Proyecto</th>
+                                        <th class="text-left py-3 px-3 font-semibold text-[10px] uppercase tracking-[0.06em] table-cell-border" style="color:var(--text-4);background:var(--bg-thead)">Commit</th>
+                                        <th class="text-left py-3 px-3 font-semibold text-[10px] uppercase tracking-[0.06em] table-cell-border w-[75px]" style="color:var(--text-4);background:var(--bg-thead)">Hora</th>
+                                        <th class="text-left py-3 px-4 font-semibold text-[10px] uppercase tracking-[0.06em] w-[85px]" style="color:var(--text-4);background:var(--bg-thead)">Impacto</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="activity-body"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- ╔══════════════════════════════════════╗
-                 ║  PANEL DERECHO — CHATBOT IA         ║
-                 ╚══════════════════════════════════════╝ -->
-            <aside class="w-[320px] flex-shrink-0 border-l border-brd bg-bg-raised flex flex-col">
-                <!-- Chat header -->
-                <div class="px-4 py-3 border-b border-brd flex items-center gap-2.5">
-                    <div class="w-6 h-6 rounded-md bg-acc/12 flex items-center justify-center">
-                        <i data-lucide="brain" class="w-3 h-3 text-acc-light"></i>
+            <!-- ═══════ VISTA: GRAFO ═══════ -->
+            <div id="view-graph" class="absolute inset-0 hidden p-5">
+                <div class="graph-frame w-full h-full flex flex-col">
+                    <div class="flex items-center gap-2 px-4 py-2.5 border-b" style="border-color:var(--brd);background:var(--bg-raised)">
+                        <i data-lucide="share-2" class="w-3.5 h-3.5" style="color:var(--acc-light)"></i>
+                        <span class="text-[11px] font-semibold" style="color:var(--text-3)">Knowledge Graph</span>
+                        <span class="ml-auto text-[9px] font-mono" style="color:var(--text-5)">graphify-out/graph.html</span>
                     </div>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-[12px] font-semibold text-zinc-200">Graphify AI Engine</p>
-                        <p class="text-[9px] text-zinc-600">Graph-RAG · Gemini 1.5 Flash</p>
-                    </div>
-                    <div class="flex items-center gap-1">
-                        <span class="w-1.5 h-1.5 rounded-full bg-live"></span>
+                    <div class="flex-1 min-h-0">
+                        <iframe src="/graph-view" class="graph-iframe" id="graph-iframe" title="Knowledge Graph" loading="lazy"></iframe>
                     </div>
                 </div>
+            </div>
 
-                <!-- Messages -->
-                <div id="chat-messages" class="flex-1 overflow-y-auto px-3.5 py-3 space-y-3">
-                    <div class="msg-enter flex gap-2.5">
-                        <div class="flex-shrink-0 w-5 h-5 rounded-md bg-acc/12 flex items-center justify-center mt-0.5">
-                            <i data-lucide="brain" class="w-2.5 h-2.5 text-acc-light"></i>
+            <!-- ═══════ VISTA: CHAT ═══════ -->
+            <div id="view-chat" class="absolute inset-0 hidden overflow-y-auto">
+                <div class="chat-container px-4 py-6">
+                    <!-- Header -->
+                    <div class="flex items-center gap-3 pb-5 flex-shrink-0">
+                        <div class="w-10 h-10 rounded-xl flex items-center justify-center" style="background:rgba(99,102,241,0.10)">
+                            <i data-lucide="brain" class="w-5 h-5" style="color:var(--acc-light)"></i>
                         </div>
-                        <div class="flex-1 min-w-0">
-                            <p class="text-[12px] text-zinc-400 leading-relaxed">
-                                Consulta tu knowledge graph. Prueba con <em class="text-acc-light not-italic">press, espalda, hipertrofia, rutina, recuperación</em>.
-                            </p>
+                        <div>
+                            <h2 class="text-[15px] font-semibold tracking-[-0.02em]" style="color:var(--text-1)">Graphify AI Engine</h2>
+                            <p class="text-[11px]" style="color:var(--text-4)">Graph-RAG · Gemini 1.5 Flash</p>
                         </div>
                     </div>
-                </div>
 
-                <!-- Input -->
-                <div class="px-3 py-2.5 border-t border-brd">
-                    <form id="chat-form" class="relative">
-                        <input
-                            id="chat-input"
-                            type="text"
-                            placeholder="Pregunta al grafo..."
-                            class="w-full bg-bg-surface border border-brd/80 rounded-lg pl-3 pr-9 py-2 text-[12px] text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-acc/40 focus:ring-1 focus:ring-acc/15 transition-all"
-                            autocomplete="off"
-                        />
-                        <button type="submit"
-                            class="absolute right-1.5 top-1/2 -translate-y-1/2 w-6 h-6 rounded-md bg-acc/10 hover:bg-acc/20 flex items-center justify-center transition-colors">
-                            <i data-lucide="arrow-up" class="w-3 h-3 text-acc-light"></i>
-                        </button>
-                    </form>
-                    <p class="text-[9px] text-zinc-700 mt-1 text-center">graph.json · Gemini 1.5 Flash</p>
+                    <!-- Messages -->
+                    <div id="chat-messages" class="flex-1 space-y-4 pb-4">
+                        <!-- AI Welcome -->
+                        <div class="msg-enter flex gap-3 items-start">
+                            <div class="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(99,102,241,0.10)">
+                                <i data-lucide="brain" class="w-4 h-4" style="color:var(--acc-light)"></i>
+                            </div>
+                            <div>
+                                <div class="chat-bubble-ai">
+                                    <p class="text-[13px] leading-[1.65]" style="color:var(--text-2)">Hola, soy tu asistente de knowledge graph. Puedo buscar información en el grafo y responder preguntas sobre tus datos.</p>
+                                </div>
+                                <div class="flex flex-wrap gap-2 mt-3" id="suggestion-chips">
+                                    <button onclick="sendFromChip('press de banca')" class="chip"><i data-lucide="dumbbell" class="w-3 h-3"></i> press de banca</button>
+                                    <button onclick="sendFromChip('espalda')" class="chip"><i data-lucide="arrow-up-from-line" class="w-3 h-3"></i> espalda</button>
+                                    <button onclick="sendFromChip('hipertrofia')" class="chip"><i data-lucide="trending-up" class="w-3 h-3"></i> hipertrofia</button>
+                                    <button onclick="sendFromChip('rutina')" class="chip"><i data-lucide="list-checks" class="w-3 h-3"></i> rutina</button>
+                                    <button onclick="sendFromChip('recuperación')" class="chip"><i data-lucide="heart-pulse" class="w-3 h-3"></i> recuperación</button>
+                                    <button onclick="sendFromChip('sobrecarga')" class="chip"><i data-lucide="zap" class="w-3 h-3"></i> sobrecarga</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Input -->
+                    <div class="flex-shrink-0 pt-3">
+                        <div class="chat-input-wrap">
+                            <form id="chat-form" class="flex items-center gap-2 p-2">
+                                <input id="chat-input" type="text" placeholder="Pregunta algo al knowledge graph..."
+                                    class="flex-1 bg-transparent px-3 py-2.5 text-[13px] focus:outline-none" style="color:var(--text-1)"
+                                    autocomplete="off" />
+                                <button type="submit" class="w-9 h-9 rounded-xl flex items-center justify-center transition-colors flex-shrink-0" style="background:var(--acc);color:white">
+                                    <i data-lucide="arrow-up" class="w-4 h-4"></i>
+                                </button>
+                            </form>
+                        </div>
+                        <p class="text-[10px] mt-2 text-center font-light" style="color:var(--text-5)">graph.json · Gemini 1.5 Flash</p>
+                    </div>
                 </div>
-            </aside>
+            </div>
+
         </div>
     </div>
 
-    <!-- ╔══════════════════════════════════════════╗
-         ║  JAVASCRIPT                              ║
-         ╚══════════════════════════════════════════╝ -->
     <script>
     (() => {
         'use strict';
-
         const API = window.location.origin;
-        let sseSource = null;
+        let sseSource = null, currentView = 'tabla', isDark = true, sidebarCollapsed = false;
+        const knownProjects = new Set(), knownDevelopers = new Set();
 
-        // ─── DOM ────────────────────────────────────
-        const $body       = document.getElementById('activity-body');
-        const $table      = document.getElementById('activity-table');
-        const $empty      = document.getElementById('empty-state');
-        const $count      = document.getElementById('activity-count');
-        const $chatMsgs   = document.getElementById('chat-messages');
-        const $chatForm   = document.getElementById('chat-form');
-        const $chatInput  = document.getElementById('chat-input');
-        const $clock      = document.getElementById('clock');
-        const $sseDot     = document.getElementById('sse-dot');
+        const $=id=>document.getElementById(id);
+        const $body=$('activity-body'), $table=$('activity-table'), $empty=$('empty-state'), $count=$('activity-count');
+        const $chatMsgs=$('chat-messages'), $chatForm=$('chat-form'), $chatInput=$('chat-input');
+        const $clock=$('clock'), $sseDot=$('sse-dot'), $sseLabel=$('sse-label');
+        const $pageTitle=$('page-title'), $liveBadge=$('live-badge'), $sidebar=$('sidebar');
+        const $filterProject=$('filter-project'), $filterDeveloper=$('filter-developer');
+        const $filterDateFrom=$('filter-date-from'), $filterDateTo=$('filter-date-to');
 
-        // ─── Init Lucide icons ──────────────────────
         lucide.createIcons();
 
-        // ─── Clock ──────────────────────────────────
-        function tick() {
-            $clock.textContent = new Date().toLocaleTimeString('es-CO', {
-                hour: '2-digit', minute: '2-digit', second: '2-digit'
-            });
-        }
-        tick(); setInterval(tick, 1000);
+        function tick(){ $clock.textContent=new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
+        tick(); setInterval(tick,1000);
 
-        // ─── SSE status ─────────────────────────────
-        function sseStatus(s) {
-            $sseDot.className = 'sse-dot';
-            $sseDot.classList.add(s === 'on' ? 'sse-on' : s === 'off' ? 'sse-off' : 'sse-wait');
+        function applyTheme(){
+            const r=document.documentElement, b=document.body;
+            if(isDark){r.classList.add('dark');r.classList.remove('light');b.classList.remove('light')}
+            else{r.classList.remove('dark');r.classList.add('light');b.classList.add('light')}
+            $('theme-icon-sun').style.display=isDark?'none':'block';
+            $('theme-icon-moon').style.display=isDark?'block':'none';
+        }
+        window.toggleTheme=()=>{ isDark=!isDark; applyTheme(); };
+        window.toggleSidebar=()=>{ sidebarCollapsed=!sidebarCollapsed; $sidebar.classList.toggle('collapsed',sidebarCollapsed); };
+
+        function sseStatus(s){
+            $sseDot.className='sse-dot';
+            $sseDot.classList.add(s==='on'?'sse-on':s==='off'?'sse-off':'sse-wait');
+            $sseLabel.textContent=s==='on'?'SSE Conectado':s==='off'?'SSE Desconectado':'Conectando...';
         }
 
-        // ─── Navigation ─────────────────────────────
-        window.switchView = function(v) {
-            document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
-            document.getElementById(`nav-${v}`).classList.add('active');
-            if (v === 'graph') {
-                const iframe = document.getElementById('graph-iframe');
-                if (!iframe.src.endsWith('/graph-view')) iframe.src = '/graph-view';
-            }
+        const viewTitles={tabla:'Trazabilidad de Cambios',graph:'Knowledge Graph',chat:'Asistente IA'};
+        window.navigate=function(v){
+            currentView=v;
+            document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
+            const nb=$(`nav-${v}`); if(nb)nb.classList.add('active');
+            $pageTitle.textContent=viewTitles[v]||'';
+            $liveBadge.style.display=v==='tabla'?'flex':'none';
+            ['tabla','graph','chat'].forEach(x=>{const el=$(`view-${x}`);if(el)el.classList.toggle('hidden',x!==v)});
+            if(v==='graph'){const f=$('graph-iframe');if(!f.src||!f.src.endsWith('/graph-view'))f.src='/graph-view'}
+            if(v==='chat')setTimeout(()=>$chatInput.focus(),100);
         };
 
-        // ─── Resizer ────────────────────────────────
-        const $resizer = document.getElementById('resizer');
-        const $graphP  = document.getElementById('graph-panel');
-        const $tableP  = document.getElementById('table-panel');
-        let resizing = false;
+        function addProjectOption(n){if(knownProjects.has(n))return;knownProjects.add(n);const o=document.createElement('option');o.value=n;o.textContent=n;$filterProject.appendChild(o)}
+        function addDeveloperOption(n){if(knownDevelopers.has(n))return;knownDevelopers.add(n);const o=document.createElement('option');o.value=n;o.textContent=n;$filterDeveloper.appendChild(o)}
 
-        $resizer.addEventListener('mousedown', (e) => {
-            resizing = true;
-            document.body.style.cursor = 'row-resize';
-            document.body.style.userSelect = 'none';
-            e.preventDefault();
-        });
+        function applyFilters(){
+            const p=$filterProject.value,d=$filterDeveloper.value,df=$filterDateFrom.value,dt=$filterDateTo.value;
+            Array.from($body.children).forEach(r=>{
+                let s=true;
+                if(p&&r.dataset.project!==p)s=false;
+                if(d&&r.dataset.developer!==d)s=false;
+                if(df&&(r.dataset.timestamp||'').slice(0,10)<df)s=false;
+                if(dt&&(r.dataset.timestamp||'').slice(0,10)>dt)s=false;
+                r.style.display=s?'':'none';
+            });
+        }
+        $filterProject.addEventListener('change',applyFilters);
+        $filterDeveloper.addEventListener('change',applyFilters);
+        $filterDateFrom.addEventListener('change',applyFilters);
+        $filterDateTo.addEventListener('change',applyFilters);
 
-        document.addEventListener('mousemove', (e) => {
-            if (!resizing) return;
-            const parent = $graphP.parentElement;
-            const rect = parent.getBoundingClientRect();
-            const offset = e.clientY - rect.top;
-            const pct = Math.max(15, Math.min(80, (offset / rect.height) * 100));
-            $graphP.style.height = pct + '%';
-        });
+        function esc(t){const d=document.createElement('div');d.textContent=t;return d.innerHTML}
+        function fmtTime(iso){return new Date(iso).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit'})}
+        function avatarGrad(n){let h=0;for(let i=0;i<n.length;i++)h=n.charCodeAt(i)+((h<<5)-h);return`avatar-grad-${Math.abs(h)%8}`}
 
-        document.addEventListener('mouseup', () => {
-            if (resizing) {
-                resizing = false;
-                document.body.style.cursor = '';
-                document.body.style.userSelect = '';
-            }
-        });
-
-        // ─── Table helpers ──────────────────────────
-        function esc(t) { const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
-        function fmtTime(iso) { return new Date(iso).toLocaleTimeString('es-CO', { hour:'2-digit', minute:'2-digit' }); }
-
-        function updateEmpty() {
-            const has = $body.children.length > 0;
-            $empty.classList.toggle('hidden', has);
-            $table.classList.toggle('hidden', !has);
-            $count.textContent = $body.children.length;
+        function updateEmpty(){
+            const has=$body.children.length>0;
+            $empty.classList.toggle('hidden',has);
+            $table.classList.toggle('hidden',!has);
+            $count.textContent=$body.children.length;
         }
 
-        function createRow(item, animate) {
-            const tr = document.createElement('tr');
-            tr.className = `group ${animate ? 'row-enter' : ''} hover:bg-bg-hover transition-colors`;
-            tr.innerHTML = `
-                <td class="py-2.5 px-5">
-                    <div class="flex items-center gap-2.5">
-                        <div class="w-6 h-6 rounded-full bg-acc/12 flex items-center justify-center text-[9px] font-semibold text-acc-light flex-shrink-0">${esc(item.developer_avatar)}</div>
-                        <span class="text-[12px] text-zinc-300 font-medium">${esc(item.developer)}</span>
-                    </div>
-                </td>
-                <td class="py-2.5 px-3">
-                    <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium badge-${item.project_color}">${esc(item.project)}</span>
-                </td>
-                <td class="py-2.5 px-3">
-                    <span class="text-[12px] text-zinc-500 group-hover:text-zinc-300 transition-colors">${esc(item.activity)}</span>
-                </td>
-                <td class="py-2.5 px-3">
-                    <span class="text-[10px] font-mono text-zinc-600 tabular-nums">${fmtTime(item.timestamp)}</span>
-                </td>
-                <td class="py-2.5 px-5">
-                    <span class="inline-flex px-1.5 py-0.5 rounded text-[10px] font-medium impact-${item.impact.toLowerCase()}">${esc(item.impact)}</span>
-                </td>
-            `;
+        function createRow(item,animate){
+            const tr=document.createElement('tr');
+            tr.className=`table-row group ${animate?'row-enter':''}`;
+            tr.dataset.developer=item.developer; tr.dataset.project=item.project; tr.dataset.timestamp=item.timestamp;
+            const grad=avatarGrad(item.developer), imp=item.impact.toLowerCase();
+            const impColor=imp==='alto'?'#f87171':imp==='medio'?'#eab308':'#22c55e';
+            tr.innerHTML=`
+                <td class="py-3 px-4 table-cell-border"><div class="flex items-center gap-2.5">
+                    <div class="w-7 h-7 rounded-full ${grad} flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0">${esc(item.developer_avatar)}</div>
+                    <span class="text-[12px] font-semibold" style="color:var(--text-1)">${esc(item.developer)}</span>
+                </div></td>
+                <td class="py-3 px-3 table-cell-border"><span class="inline-flex px-2 py-[2px] rounded-md text-[10px] font-semibold badge-${item.project_color}">${esc(item.project)}</span></td>
+                <td class="py-3 px-3 table-cell-border"><span class="text-[12px]" style="color:var(--text-2)">${esc(item.activity)}</span></td>
+                <td class="py-3 px-3 table-cell-border"><span class="text-[10px] font-mono font-medium tabular-nums" style="color:var(--text-4)">${fmtTime(item.timestamp)}</span></td>
+                <td class="py-3 px-4"><div class="flex items-center gap-2">
+                    <span class="led led-${imp}"></span>
+                    <span class="text-[11px] font-semibold" style="color:${impColor}">${esc(item.impact)}</span>
+                </div></td>`;
+            addProjectOption(item.project); addDeveloperOption(item.developer);
             return tr;
         }
 
-        function prependActivity(item) {
-            const row = createRow(item, true);
-            if ($body.firstChild) $body.insertBefore(row, $body.firstChild);
-            else $body.appendChild(row);
-            updateEmpty();
-            setTimeout(() => row.classList.remove('row-enter'), 1800);
+        function prependActivity(item){
+            const row=createRow(item,true);
+            if($body.firstChild)$body.insertBefore(row,$body.firstChild);else $body.appendChild(row);
+            updateEmpty(); applyFilters();
+            setTimeout(()=>row.classList.remove('row-enter'),2000);
+        }
+        window.clearActivity=()=>{$body.innerHTML='';updateEmpty()};
+
+        async function loadActivity(){
+            try{const r=await fetch(`${API}/api/activity`);if(!r.ok)return;const items=await r.json();
+            if(items.length){items.reverse().forEach(i=>$body.appendChild(createRow(i,false)));updateEmpty()}}catch{}
         }
 
-        window.clearActivity = function() { $body.innerHTML = ''; updateEmpty(); };
-
-        // ─── Load initial ───────────────────────────
-        async function loadActivity() {
-            try {
-                const res = await fetch(`${API}/api/activity`);
-                if (!res.ok) return;
-                const items = await res.json();
-                if (items.length) {
-                    items.reverse().forEach(i => $body.appendChild(createRow(i, false)));
-                    updateEmpty();
-                }
-            } catch { updateEmpty(); }
+        function connectSSE(){
+            sseStatus('wait'); sseSource=new EventSource(`${API}/api/stream`);
+            sseSource.addEventListener('activity',e=>{try{prependActivity(JSON.parse(e.data))}catch{}});
+            sseSource.addEventListener('ping',()=>{});
+            sseSource.onopen=()=>sseStatus('on');
+            sseSource.onerror=()=>{sseStatus('off');sseSource.close();setTimeout(()=>{if(!sseSource||sseSource.readyState===EventSource.CLOSED)connectSSE()},5000)};
         }
 
-        // ─── SSE ────────────────────────────────────
-        function connectSSE() {
-            sseStatus('wait');
-            sseSource = new EventSource(`${API}/api/stream`);
-
-            sseSource.addEventListener('activity', (e) => {
-                try { prependActivity(JSON.parse(e.data)); } catch {}
-            });
-
-            sseSource.addEventListener('ping', () => {});
-
-            sseSource.onopen = () => sseStatus('on');
-
-            sseSource.onerror = () => {
-                sseStatus('off');
-                sseSource.close();
-                setTimeout(() => {
-                    if (!sseSource || sseSource.readyState === EventSource.CLOSED) connectSSE();
-                }, 5000);
-            };
-        }
-
-        // ─── Chat ───────────────────────────────────
-        function addMsg(content, isUser) {
-            const w = document.createElement('div');
-            w.className = 'msg-enter flex gap-2.5' + (isUser ? ' justify-end' : '');
-
-            if (isUser) {
-                w.innerHTML = `
-                    <div class="flex-1 min-w-0 flex justify-end">
-                        <div class="bg-acc/12 border border-acc/15 rounded-lg rounded-br-sm px-3 py-1.5 max-w-[85%]">
-                            <p class="text-[12px] text-zinc-200 leading-relaxed">${esc(content)}</p>
-                        </div>
-                    </div>
-                    <div class="flex-shrink-0 w-5 h-5 rounded-md bg-zinc-800 flex items-center justify-center mt-0.5 text-[8px] font-semibold text-zinc-400">U</div>
-                `;
+        // ── Chat ─────────────────────────────────
+        function addMsg(content,isUser){
+            const w=document.createElement('div');
+            w.className='msg-enter flex gap-3 items-start'+(isUser?' justify-end':'');
+            if(isUser){
+                w.innerHTML=`<div class="chat-bubble-user"><p class="text-[13px] leading-relaxed">${esc(content)}</p></div>`;
             } else {
-                w.innerHTML = `
-                    <div class="flex-shrink-0 w-5 h-5 rounded-md bg-acc/12 flex items-center justify-center mt-0.5">
-                        <i data-lucide="brain" class="w-2.5 h-2.5 text-acc-light"></i>
+                w.innerHTML=`
+                    <div class="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(99,102,241,0.10)">
+                        <i data-lucide="brain" class="w-4 h-4" style="color:var(--acc-light)"></i>
                     </div>
-                    <div class="flex-1 min-w-0">
-                        <div class="text-[12px] text-zinc-400 leading-relaxed">${content}</div>
-                    </div>
-                `;
+                    <div class="chat-bubble-ai"><div class="text-[13px] leading-[1.65]" style="color:var(--text-2)">${content}</div></div>`;
             }
+            $chatMsgs.appendChild(w); lucide.createIcons({nodes:[w]}); $chatMsgs.scrollTop=$chatMsgs.scrollHeight;
+        }
+        function addTyping(){
+            const w=document.createElement('div');w.className='msg-enter flex gap-3 items-start';w.id='typing';
+            w.innerHTML=`<div class="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center" style="background:rgba(99,102,241,0.10)"><i data-lucide="brain" class="w-4 h-4" style="color:var(--acc-light)"></i></div>
+                <div class="chat-bubble-ai flex items-center gap-1.5 py-3"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span></div>`;
+            $chatMsgs.appendChild(w);lucide.createIcons({nodes:[w]});$chatMsgs.scrollTop=$chatMsgs.scrollHeight;
+        }
+        function removeTyping(){const e=$('typing');if(e)e.remove()}
 
-            $chatMsgs.appendChild(w);
-            lucide.createIcons({ nodes: [w] });
-            $chatMsgs.scrollTop = $chatMsgs.scrollHeight;
+        function mdLite(t){
+            return t.replace(/\*\*(.*?)\*\*/g,'<strong style="color:var(--text-1);font-weight:600">$1</strong>')
+                .replace(/`(.*?)`/g,'<code style="font-family:JetBrains Mono,monospace;font-size:11px;background:rgba(99,102,241,0.08);color:var(--acc-light);padding:1px 5px;border-radius:4px">$1</code>')
+                .replace(/\n- /g,'<br>• ').replace(/\n\n/g,'<br><br>').replace(/_(.*?)_/g,'<em style="color:var(--text-4)">$1</em>');
         }
 
-        function addTyping() {
-            const w = document.createElement('div');
-            w.className = 'msg-enter flex gap-2.5';
-            w.id = 'typing';
-            w.innerHTML = `
-                <div class="flex-shrink-0 w-5 h-5 rounded-md bg-acc/12 flex items-center justify-center mt-0.5">
-                    <i data-lucide="brain" class="w-2.5 h-2.5 text-acc-light"></i>
-                </div>
-                <div class="flex items-center gap-1 py-1.5">
-                    <span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span>
-                </div>
-            `;
-            $chatMsgs.appendChild(w);
-            lucide.createIcons({ nodes: [w] });
-            $chatMsgs.scrollTop = $chatMsgs.scrollHeight;
+        async function sendChat(msg){
+            addMsg(msg,true);$chatInput.value='';addTyping();
+            try{const r=await fetch(`${API}/api/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:msg})});
+            if(!r.ok)throw new Error(`HTTP ${r.status}`);const d=await r.json();removeTyping();addMsg(mdLite(d.response),false)}
+            catch(err){removeTyping();addMsg(`<span style="color:#f87171;font-weight:500">Error:</span> ${esc(err.message)}`,false)}
         }
 
-        function removeTyping() { const el = document.getElementById('typing'); if (el) el.remove(); }
+        $chatForm.addEventListener('submit',e=>{e.preventDefault();const m=$chatInput.value.trim();if(m)sendChat(m)});
+        window.sendFromChip=function(t){$chatInput.value=t;sendChat(t)};
 
-        function mdLite(t) {
-            return t
-                .replace(/\*\*(.*?)\*\*/g, '<strong class="text-zinc-200">$1</strong>')
-                .replace(/`(.*?)`/g, '<code class="font-mono text-[10px] bg-acc/8 text-acc-light px-1 py-0.5 rounded">$1</code>')
-                .replace(/\n- /g, '<br>• ')
-                .replace(/\n\n/g, '<br><br>')
-                .replace(/_(.*?)_/g, '<em class="text-zinc-600">$1</em>');
-        }
-
-        async function sendChat(msg) {
-            addMsg(msg, true);
-            $chatInput.value = '';
-            addTyping();
-            try {
-                const res = await fetch(`${API}/api/chat`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: msg }),
-                });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const data = await res.json();
-                removeTyping();
-                addMsg(mdLite(data.response), false);
-            } catch (err) {
-                removeTyping();
-                addMsg(`<span class="text-red-400">Error:</span> ${esc(err.message)}. ¿Está corriendo <code class="font-mono text-[10px] bg-acc/8 text-acc-light px-1 py-0.5 rounded">python app.py</code>?`, false);
-            }
-        }
-
-        $chatForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const m = $chatInput.value.trim();
-            if (m) sendChat(m);
-        });
-
-        // ─── Init ───────────────────────────────────
-        updateEmpty();
-        loadActivity().then(connectSSE);
-
+        // ── Init ────────────────────────────────
+        applyTheme(); updateEmpty(); loadActivity().then(connectSSE);
     })();
     </script>
 </body>
