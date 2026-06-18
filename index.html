@@ -1,35 +1,727 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GYM Knowledge Graph</title>
-    <meta http-equiv="refresh" content="0;url=graphify-out/graph.html">
+    <title>Graphify Core — Dashboard</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        surface: {
+                            0: '#09090b',
+                            1: '#111114',
+                            2: '#18181b',
+                            3: '#1f1f23',
+                            4: '#27272a',
+                        },
+                        accent: {
+                            DEFAULT: '#6366f1',
+                            light: '#818cf8',
+                            muted: '#4f46e5',
+                        },
+                        live: '#22c55e',
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
+                    },
+                },
+            },
+        }
+    </script>
+
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
     <style>
+        /* ── Base ────────────────────────────────────── */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-family: 'Inter', system-ui, sans-serif;
+            background: #09090b;
+            color: #e4e4e7;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* ── Scrollbar ───────────────────────────────── */
+        ::-webkit-scrollbar { width: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #3f3f46; }
+
+        /* ── Live Indicator ──────────────────────────── */
+        @keyframes pulse-live {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(1.5); }
+        }
+        .live-dot { animation: pulse-live 2s ease-in-out infinite; }
+
+        /* ── Row slide-in ────────────────────────────── */
+        @keyframes slide-in {
+            from { opacity: 0; transform: translateY(-12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .row-enter { animation: slide-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+
+        /* ── Row highlight flash ─────────────────────── */
+        @keyframes row-flash {
+            0% { background: rgba(99, 102, 241, 0.12); }
+            100% { background: transparent; }
+        }
+        .row-flash { animation: row-flash 1.5s ease-out forwards; }
+
+        /* ── Tab underline ───────────────────────────── */
+        .tab-btn { position: relative; transition: color 0.2s; }
+        .tab-btn::after {
+            content: '';
+            position: absolute;
+            bottom: -1px; left: 0;
+            width: 100%; height: 2px;
+            background: transparent;
+            border-radius: 2px;
+            transition: background 0.2s;
+        }
+        .tab-btn.active { color: #e4e4e7; }
+        .tab-btn.active::after { background: #6366f1; }
+
+        /* ── Chat message animation ──────────────────── */
+        @keyframes fade-up {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .msg-enter { animation: fade-up 0.3s ease-out forwards; }
+
+        /* ── Sidebar nav item ────────────────────────── */
+        .nav-item {
+            transition: all 0.15s;
+            border-left: 2px solid transparent;
+        }
+        .nav-item:hover {
+            background: rgba(99, 102, 241, 0.06);
+            border-left-color: rgba(99, 102, 241, 0.3);
+        }
+        .nav-item.active {
+            background: rgba(99, 102, 241, 0.08);
+            border-left-color: #6366f1;
+            color: #e4e4e7;
+        }
+
+        /* ── Impact badges ───────────────────────────── */
+        .impact-alto { background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
+        .impact-medio { background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); }
+        .impact-bajo { background: rgba(34, 197, 94, 0.12); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.2); }
+
+        /* ── Project badges ──────────────────────────── */
+        .badge-blue { background: rgba(59, 130, 246, 0.12); color: #60a5fa; }
+        .badge-violet { background: rgba(139, 92, 246, 0.12); color: #a78bfa; }
+        .badge-green { background: rgba(34, 197, 94, 0.12); color: #4ade80; }
+        .badge-amber { background: rgba(245, 158, 11, 0.12); color: #fbbf24; }
+        .badge-rose { background: rgba(244, 63, 94, 0.12); color: #fb7185; }
+
+        /* ── Typing indicator ────────────────────────── */
+        @keyframes typing-bounce {
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-4px); }
+        }
+        .typing-dot {
+            display: inline-block;
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: #6366f1;
+            animation: typing-bounce 1.4s infinite;
+        }
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        /* ── Graph iframe ────────────────────────────── */
+        .graph-iframe {
+            border: none;
+            width: 100%;
+            height: 100%;
+            background: #09090b;
+            border-radius: 0;
+        }
+
+        /* ── Empty state ─────────────────────────────── */
+        .empty-state {
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            background: #0d1117;
-            color: #c9d1d9;
-        }
-        .container {
+            justify-content: center;
+            height: 100%;
             text-align: center;
-            padding: 2rem;
+            padding: 3rem;
         }
-        h1 { color: #58a6ff; }
-        a { color: #58a6ff; font-size: 1.2rem; }
-        a:hover { text-decoration: underline; }
+
+        /* ── SSE connection status ───────────────────── */
+        .sse-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            transition: background 0.3s;
+        }
+        .sse-connected { background: #22c55e; }
+        .sse-disconnected { background: #ef4444; }
+        .sse-connecting { background: #f59e0b; animation: pulse-live 1s ease-in-out infinite; }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>🏋️ GYM Knowledge Graph</h1>
-        <p>Redirigiendo al grafo interactivo...</p>
-        <p>Si no redirige automáticamente, <a href="graphify-out/graph.html">haz clic aquí</a></p>
+
+<body class="flex h-screen bg-surface-0">
+
+    <!-- ╔══════════════════════════════════════════════╗
+         ║  SIDEBAR IZQUIERDO                          ║
+         ╚══════════════════════════════════════════════╝ -->
+    <aside class="w-56 flex-shrink-0 border-r border-zinc-800/60 bg-surface-1 flex flex-col">
+        <!-- Logo -->
+        <div class="px-5 py-5 border-b border-zinc-800/60">
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-accent/15 flex items-center justify-center">
+                    <svg class="w-4.5 h-4.5 text-accent-light" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-sm font-semibold text-zinc-100 tracking-tight">Graphify</h1>
+                    <span class="text-[10px] text-zinc-500 font-medium uppercase tracking-widest">Core</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation -->
+        <nav class="flex-1 py-3 px-2 space-y-0.5">
+            <button onclick="switchView('activity')" id="nav-activity"
+                class="nav-item active w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm text-zinc-400">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                Actividad en Vivo
+            </button>
+            <button onclick="switchView('graph')" id="nav-graph"
+                class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm text-zinc-400">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/>
+                </svg>
+                Ver Grafo
+            </button>
+            <button onclick="switchView('docs')" id="nav-docs"
+                class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-md text-sm text-zinc-400">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Documentación
+            </button>
+        </nav>
+
+        <!-- SSE Status -->
+        <div class="px-4 py-3 border-t border-zinc-800/60">
+            <div class="flex items-center gap-2 mb-2">
+                <span class="sse-dot sse-connecting" id="sse-status-dot"></span>
+                <span class="text-[10px] text-zinc-500" id="sse-status-text">Conectando SSE...</span>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="px-4 py-4 border-t border-zinc-800/60">
+            <div class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center text-[10px] font-semibold text-accent-light">
+                    U
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-xs font-medium text-zinc-300 truncate">Usuario Demo</p>
+                    <p class="text-[10px] text-zinc-500">admin@graphify</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- ╔══════════════════════════════════════════════╗
+         ║  ÁREA PRINCIPAL                             ║
+         ╚══════════════════════════════════════════════╝ -->
+    <div class="flex-1 flex flex-col min-w-0">
+
+        <!-- ── Header ────────────────────────────────── -->
+        <header class="h-14 flex-shrink-0 border-b border-zinc-800/60 bg-surface-1/50 backdrop-blur-sm flex items-center justify-between px-6">
+            <div class="flex items-center gap-4">
+                <h2 class="text-sm font-semibold text-zinc-100 tracking-tight" id="header-title">Actividad en Vivo</h2>
+                <!-- Live indicator -->
+                <div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-live/10 border border-live/20">
+                    <span class="live-dot w-1.5 h-1.5 rounded-full bg-live"></span>
+                    <span class="text-[11px] font-medium text-live">En Vivo</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-3 text-xs text-zinc-500">
+                <span id="clock" class="font-mono"></span>
+                <div class="w-px h-4 bg-zinc-800"></div>
+                <span class="font-mono">v1.0.0</span>
+            </div>
+        </header>
+
+        <!-- ── Content Area ──────────────────────────── -->
+        <div class="flex-1 flex min-h-0">
+
+            <!-- Main Content Column -->
+            <div class="flex-1 flex flex-col min-w-0">
+
+                <!-- Tabs -->
+                <div class="flex-shrink-0 border-b border-zinc-800/60 bg-surface-1/30 px-6 flex items-center gap-1" id="tabs-bar">
+                    <button onclick="switchTab('table')" class="tab-btn active px-4 py-3 text-sm font-medium text-zinc-400" data-tab="table">
+                        Tabla de Actividad
+                    </button>
+                    <button onclick="switchTab('graphview')" class="tab-btn px-4 py-3 text-sm font-medium text-zinc-400" data-tab="graphview">
+                        Ver Grafo
+                    </button>
+                </div>
+
+                <!-- Tab Content -->
+                <div class="flex-1 overflow-hidden">
+
+                    <!-- TAB 1: Activity Table -->
+                    <div id="tab-table" class="h-full flex flex-col">
+                        <!-- Table Header -->
+                        <div class="flex-shrink-0 px-6 pt-4 pb-2 flex items-center justify-between">
+                            <p class="text-xs text-zinc-500 font-medium">
+                                <span id="activity-count">0</span> eventos registrados
+                            </p>
+                            <div class="flex items-center gap-2">
+                                <button onclick="clearActivity()" class="text-xs text-zinc-500 hover:text-zinc-300 px-2 py-1 rounded hover:bg-zinc-800/50 transition-colors">
+                                    Limpiar
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Table -->
+                        <div class="flex-1 overflow-y-auto px-6 pb-6" id="table-container">
+                            <!-- Empty state (shown when no data) -->
+                            <div id="empty-state" class="empty-state">
+                                <div class="w-16 h-16 rounded-2xl bg-zinc-800/50 flex items-center justify-center mb-5">
+                                    <svg class="w-7 h-7 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+                                    </svg>
+                                </div>
+                                <h3 class="text-sm font-semibold text-zinc-400 mb-1">Sin actividad registrada</h3>
+                                <p class="text-xs text-zinc-600 max-w-sm leading-relaxed mb-4">
+                                    Los eventos aparecerán aquí en tiempo real cuando se envíen datos al webhook.
+                                </p>
+                                <div class="bg-surface-3 rounded-lg p-3 text-left max-w-lg w-full">
+                                    <p class="text-[10px] uppercase tracking-wider text-zinc-500 font-medium mb-2">Ejemplo con curl:</p>
+                                    <code class="text-[11px] font-mono text-zinc-400 leading-relaxed block whitespace-pre-wrap">curl -X POST http://localhost:8000/api/webhook/git \
+  -H "Content-Type: application/json" \
+  -d '{"developer":"Juan Pérez","project":"Graphify API","activity":"Implementó búsqueda semántica","impact":"Alto"}'</code>
+                                </div>
+                            </div>
+
+                            <!-- Table (hidden initially) -->
+                            <table class="w-full hidden" id="activity-table">
+                                <thead class="sticky top-0 z-10">
+                                    <tr class="text-[11px] uppercase tracking-wider text-zinc-500 font-medium">
+                                        <th class="text-left py-3 pr-4 bg-surface-0 w-[200px]">Desarrollador</th>
+                                        <th class="text-left py-3 pr-4 bg-surface-0 w-[170px]">Proyecto</th>
+                                        <th class="text-left py-3 pr-4 bg-surface-0">Actividad</th>
+                                        <th class="text-left py-3 pr-4 bg-surface-0 w-[100px]">Hora</th>
+                                        <th class="text-left py-3 bg-surface-0 w-[90px]">Impacto</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="activity-body" class="divide-y divide-zinc-800/40">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: Graph View (iframe con grafo real) -->
+                    <div id="tab-graphview" class="h-full hidden">
+                        <iframe
+                            src="/graph"
+                            class="graph-iframe"
+                            id="graph-iframe"
+                            title="Knowledge Graph — Graphify"
+                            loading="lazy"
+                        ></iframe>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ╔══════════════════════════════════════════╗
+                 ║  PANEL DERECHO — CHATBOT IA            ║
+                 ╚══════════════════════════════════════════╝ -->
+            <aside class="w-80 flex-shrink-0 border-l border-zinc-800/60 bg-surface-1 flex flex-col">
+                <!-- Chat Header -->
+                <div class="px-4 py-3.5 border-b border-zinc-800/60 flex items-center gap-3">
+                    <div class="w-7 h-7 rounded-lg bg-accent/15 flex items-center justify-center">
+                        <svg class="w-3.5 h-3.5 text-accent-light" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-zinc-200">Graphify AI</p>
+                        <p class="text-[10px] text-zinc-500">Graph-RAG · Contexto de graph.json</p>
+                    </div>
+                    <div class="ml-auto flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-live"></span>
+                        <span class="text-[10px] text-zinc-500">Online</span>
+                    </div>
+                </div>
+
+                <!-- Chat Messages -->
+                <div id="chat-messages" class="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+                    <!-- Welcome message -->
+                    <div class="msg-enter flex gap-3">
+                        <div class="flex-shrink-0 w-6 h-6 rounded-md bg-accent/15 flex items-center justify-center mt-0.5">
+                            <svg class="w-3 h-3 text-accent-light" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                            </svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm text-zinc-300 leading-relaxed">
+                                Soy el asistente Graph-RAG. Consulto tu <code class="font-mono text-[11px] bg-accent/10 text-accent-light px-1 py-0.5 rounded">graph.json</code> real para responder.
+                                <span class="text-zinc-500">Prueba con: <em class="text-accent-light">press, espalda, hipertrofia, recuperación, rutina</em></span>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chat Input -->
+                <div class="px-3 py-3 border-t border-zinc-800/60">
+                    <form id="chat-form" class="relative">
+                        <input
+                            id="chat-input"
+                            type="text"
+                            placeholder="Pregunta algo sobre el grafo..."
+                            class="w-full bg-surface-3 border border-zinc-800/80 rounded-lg pl-4 pr-11 py-2.5 text-sm text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-accent/50 focus:ring-1 focus:ring-accent/20 transition-all"
+                            autocomplete="off"
+                        />
+                        <button
+                            type="submit"
+                            class="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-md bg-accent/15 hover:bg-accent/25 flex items-center justify-center transition-colors"
+                        >
+                            <svg class="w-3.5 h-3.5 text-accent-light" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 19V5m0 0l-7 7m7-7l7 7"/>
+                            </svg>
+                        </button>
+                    </form>
+                    <p class="text-[10px] text-zinc-600 mt-1.5 text-center">Graph-RAG · graph.json real · Gemini: placeholder</p>
+                </div>
+            </aside>
+        </div>
     </div>
+
+    <!-- ╔══════════════════════════════════════════════╗
+         ║  JAVASCRIPT — 100% Real, sin datos falsos   ║
+         ╚══════════════════════════════════════════════╝ -->
+    <script>
+    (() => {
+        'use strict';
+
+        // ─── State ─────────────────────────────────
+        const API = window.location.origin;
+        let sseSource = null;
+
+        // ─── DOM References ────────────────────────
+        const $body        = document.getElementById('activity-body');
+        const $table       = document.getElementById('activity-table');
+        const $emptyState  = document.getElementById('empty-state');
+        const $count       = document.getElementById('activity-count');
+        const $chatMsgs    = document.getElementById('chat-messages');
+        const $chatForm    = document.getElementById('chat-form');
+        const $chatInput   = document.getElementById('chat-input');
+        const $clock       = document.getElementById('clock');
+        const $headerTitle = document.getElementById('header-title');
+        const $sseDot      = document.getElementById('sse-status-dot');
+        const $sseText     = document.getElementById('sse-status-text');
+
+        // ─── Clock ─────────────────────────────────
+        function updateClock() {
+            $clock.textContent = new Date().toLocaleTimeString('es-CO', {
+                hour: '2-digit', minute: '2-digit', second: '2-digit'
+            });
+        }
+        updateClock();
+        setInterval(updateClock, 1000);
+
+        // ─── SSE Connection Status ─────────────────
+        function setSseStatus(status) {
+            $sseDot.className = 'sse-dot';
+            if (status === 'connected') {
+                $sseDot.classList.add('sse-connected');
+                $sseText.textContent = 'SSE Conectado';
+            } else if (status === 'disconnected') {
+                $sseDot.classList.add('sse-disconnected');
+                $sseText.textContent = 'SSE Desconectado';
+            } else {
+                $sseDot.classList.add('sse-connecting');
+                $sseText.textContent = 'Conectando SSE...';
+            }
+        }
+
+        // ─── Tab Switching ─────────────────────────
+        window.switchTab = function(tab) {
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.tab === tab);
+            });
+            document.getElementById('tab-table').classList.toggle('hidden', tab !== 'table');
+            document.getElementById('tab-graphview').classList.toggle('hidden', tab !== 'graphview');
+
+            // Reload iframe when switching to graph tab
+            if (tab === 'graphview') {
+                const iframe = document.getElementById('graph-iframe');
+                if (iframe.src !== `${API}/graph`) {
+                    iframe.src = `${API}/graph`;
+                }
+            }
+        };
+
+        // ─── Sidebar Navigation ────────────────────
+        window.switchView = function(view) {
+            document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`nav-${view}`).classList.add('active');
+
+            const titles = { activity: 'Actividad en Vivo', graph: 'Ver Grafo', docs: 'Documentación' };
+            $headerTitle.textContent = titles[view] || 'Dashboard';
+
+            if (view === 'activity') switchTab('table');
+            else if (view === 'graph') switchTab('graphview');
+            else if (view === 'docs') switchTab('table');
+        };
+
+        // ─── Activity Table ────────────────────────
+        function formatTime(isoStr) {
+            return new Date(isoStr).toLocaleTimeString('es-CO', {
+                hour: '2-digit', minute: '2-digit'
+            });
+        }
+
+        function escapeHtml(text) {
+            const d = document.createElement('div');
+            d.textContent = text;
+            return d.innerHTML;
+        }
+
+        function updateEmptyState() {
+            const hasRows = $body.children.length > 0;
+            $emptyState.classList.toggle('hidden', hasRows);
+            $table.classList.toggle('hidden', !hasRows);
+            $count.textContent = $body.children.length;
+        }
+
+        function createRow(item, animate = false) {
+            const impactClass = `impact-${item.impact.toLowerCase()}`;
+            const badgeClass = `badge-${item.project_color}`;
+            const tr = document.createElement('tr');
+            tr.className = `group ${animate ? 'row-enter row-flash' : ''} hover:bg-zinc-800/20 transition-colors`;
+            tr.innerHTML = `
+                <td class="py-3 pr-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-7 h-7 rounded-full bg-accent/15 flex items-center justify-center text-[10px] font-semibold text-accent-light flex-shrink-0">
+                            ${escapeHtml(item.developer_avatar)}
+                        </div>
+                        <span class="text-sm text-zinc-300 font-medium">${escapeHtml(item.developer)}</span>
+                    </div>
+                </td>
+                <td class="py-3 pr-4">
+                    <span class="inline-flex px-2 py-0.5 rounded text-[11px] font-medium ${badgeClass}">
+                        ${escapeHtml(item.project)}
+                    </span>
+                </td>
+                <td class="py-3 pr-4">
+                    <span class="text-sm text-zinc-400 group-hover:text-zinc-300 transition-colors">${escapeHtml(item.activity)}</span>
+                </td>
+                <td class="py-3 pr-4">
+                    <span class="text-xs font-mono text-zinc-500">${formatTime(item.timestamp)}</span>
+                </td>
+                <td class="py-3">
+                    <span class="inline-flex px-2 py-0.5 rounded text-[11px] font-medium ${impactClass}">
+                        ${escapeHtml(item.impact)}
+                    </span>
+                </td>
+            `;
+            return tr;
+        }
+
+        function prependActivity(item) {
+            const row = createRow(item, true);
+            if ($body.firstChild) {
+                $body.insertBefore(row, $body.firstChild);
+            } else {
+                $body.appendChild(row);
+            }
+            updateEmptyState();
+            // Remove animation classes after they play
+            setTimeout(() => {
+                row.classList.remove('row-enter', 'row-flash');
+            }, 1600);
+        }
+
+        window.clearActivity = function() {
+            $body.innerHTML = '';
+            updateEmptyState();
+        };
+
+        // ─── Load Initial Activity (from backend) ──
+        async function loadActivity() {
+            try {
+                const res = await fetch(`${API}/api/activity`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const items = await res.json();
+                if (items.length > 0) {
+                    // Render in reverse (oldest first) so newest ends up on top
+                    items.reverse().forEach(item => {
+                        $body.appendChild(createRow(item, false));
+                    });
+                    updateEmptyState();
+                }
+            } catch (err) {
+                console.warn('No se pudo cargar actividad:', err.message);
+                updateEmptyState();
+            }
+        }
+
+        // ─── SSE: Real-time Connection ─────────────
+        function connectSSE() {
+            setSseStatus('connecting');
+
+            sseSource = new EventSource(`${API}/api/stream`);
+
+            sseSource.addEventListener('activity', (e) => {
+                try {
+                    const item = JSON.parse(e.data);
+                    prependActivity(item);
+                } catch (err) {
+                    console.error('Error parseando evento SSE:', err);
+                }
+            });
+
+            sseSource.addEventListener('ping', () => {
+                // Heartbeat — conexión viva
+            });
+
+            sseSource.onopen = () => {
+                setSseStatus('connected');
+            };
+
+            sseSource.onerror = () => {
+                setSseStatus('disconnected');
+                sseSource.close();
+
+                // Auto-reconnect after 5 seconds
+                setTimeout(() => {
+                    if (!sseSource || sseSource.readyState === EventSource.CLOSED) {
+                        connectSSE();
+                    }
+                }, 5000);
+            };
+        }
+
+        // ─── Chat ──────────────────────────────────
+        function addChatMessage(content, isUser = false) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'msg-enter flex gap-3' + (isUser ? ' justify-end' : '');
+
+            if (isUser) {
+                wrapper.innerHTML = `
+                    <div class="flex-1 min-w-0 flex justify-end">
+                        <div class="bg-accent/15 border border-accent/20 rounded-lg rounded-br-sm px-3 py-2 max-w-[85%]">
+                            <p class="text-sm text-zinc-200 leading-relaxed">${escapeHtml(content)}</p>
+                        </div>
+                    </div>
+                    <div class="flex-shrink-0 w-6 h-6 rounded-md bg-zinc-700/50 flex items-center justify-center mt-0.5 text-[10px] font-semibold text-zinc-300">U</div>
+                `;
+            } else {
+                wrapper.innerHTML = `
+                    <div class="flex-shrink-0 w-6 h-6 rounded-md bg-accent/15 flex items-center justify-center mt-0.5">
+                        <svg class="w-3 h-3 text-accent-light" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                        </svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="text-sm text-zinc-300 leading-relaxed">${content}</div>
+                    </div>
+                `;
+            }
+
+            $chatMsgs.appendChild(wrapper);
+            $chatMsgs.scrollTop = $chatMsgs.scrollHeight;
+        }
+
+        function addTypingIndicator() {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'msg-enter flex gap-3';
+            wrapper.id = 'typing-indicator';
+            wrapper.innerHTML = `
+                <div class="flex-shrink-0 w-6 h-6 rounded-md bg-accent/15 flex items-center justify-center mt-0.5">
+                    <svg class="w-3 h-3 text-accent-light" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+                    </svg>
+                </div>
+                <div class="flex-1 min-w-0 flex items-center gap-1.5 py-2">
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                    <span class="typing-dot"></span>
+                </div>
+            `;
+            $chatMsgs.appendChild(wrapper);
+            $chatMsgs.scrollTop = $chatMsgs.scrollHeight;
+        }
+
+        function removeTypingIndicator() {
+            const el = document.getElementById('typing-indicator');
+            if (el) el.remove();
+        }
+
+        function renderMarkdownLite(text) {
+            return text
+                .replace(/\*\*(.*?)\*\*/g, '<strong class="text-zinc-100">$1</strong>')
+                .replace(/`(.*?)`/g, '<code class="font-mono text-[11px] bg-accent/10 text-accent-light px-1 py-0.5 rounded">$1</code>')
+                .replace(/\n- /g, '<br>• ')
+                .replace(/\n\n/g, '<br><br>')
+                .replace(/_(.*?)_/g, '<em class="text-zinc-500">$1</em>');
+        }
+
+        async function sendChat(message) {
+            addChatMessage(message, true);
+            $chatInput.value = '';
+            addTypingIndicator();
+
+            try {
+                const res = await fetch(`${API}/api/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message }),
+                });
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const data = await res.json();
+                removeTypingIndicator();
+                addChatMessage(renderMarkdownLite(data.response), false);
+            } catch (err) {
+                removeTypingIndicator();
+                addChatMessage(
+                    `No pude conectar al backend (<code class="font-mono text-xs bg-red-500/10 text-red-400 px-1 py-0.5 rounded">${escapeHtml(err.message)}</code>). Asegúrate de que <code class="font-mono text-xs bg-accent/10 text-accent-light px-1 py-0.5 rounded">python app.py</code> esté corriendo en el puerto 8000.`,
+                    false
+                );
+            }
+        }
+
+        $chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const msg = $chatInput.value.trim();
+            if (!msg) return;
+            sendChat(msg);
+        });
+
+        // ─── Initialize ────────────────────────────
+        loadActivity().then(() => {
+            connectSSE();
+        });
+
+        // Initialize empty state
+        updateEmptyState();
+    })();
+    </script>
 </body>
 </html>
