@@ -455,23 +455,34 @@ async def get_activity():
 
 
 @app.get("/api/commits")
-async def get_commits(page: int = 1, limit: int = 20):
+async def get_commits(page: int = 1, limit: int = 20, search: str = ""):
     """
     Devuelve commits paginados (más recientes primero).
-    Query params: ?page=1&limit=20
+    Query params: ?page=1&limit=20&search=keyword
+    Busca en mensaje, autor y repositorio.
     """
-    total = len(commit_log)
+    filtered = commit_log
+    if search:
+        search_lower = search.lower()
+        filtered = [
+            c for c in commit_log
+            if search_lower in c.message.lower()
+            or search_lower in c.author.lower()
+            or search_lower in c.repo.lower()
+        ]
+    total = len(filtered)
     total_pages = max(1, (total + limit - 1) // limit)
     page = max(1, min(page, total_pages))
     start = (page - 1) * limit
     end = start + limit
-    items = commit_log[start:end]
+    items = filtered[start:end]
     return {
         "commits": [item.model_dump() for item in items],
         "page": page,
         "limit": limit,
         "total": total,
         "total_pages": total_pages,
+        "search": search,
     }
 
 

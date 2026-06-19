@@ -216,6 +216,11 @@
 
         .dark input[type="date"]{color-scheme:dark} .light input[type="date"]{color-scheme:light}
 
+        /* ── Search ─────────────────────────────────── */
+        .search-input { transition: border-color 0.2s, box-shadow 0.2s, width 0.25s; }
+        .search-input:focus { border-color: rgba(99,102,241,0.40)!important; box-shadow: 0 0 0 2px rgba(99,102,241,0.08); width: 220px!important; }
+        .search-input::placeholder { color: var(--text-5); }
+
         /* ── Pagination ───────────────────────────── */
         .page-btn { display:flex; align-items:center; gap:6px; padding:6px 14px; border-radius:8px; font-size:11px; font-weight:600; border:1px solid var(--brd); background:var(--bg-surface); color:var(--text-4); cursor:pointer; transition:all 0.18s; }
         .page-btn:hover:not(:disabled) { border-color:var(--acc); color:var(--acc-light); background:rgba(99,102,241,0.06); }
@@ -345,7 +350,20 @@
                                 <i data-lucide="git-commit-horizontal" class="w-4 h-4" style="color:var(--text-4)"></i>
                                 <span class="text-[12px] font-semibold" style="color:var(--text-3)">Commits en Tiempo Real</span>
                             </div>
-                            <div class="flex items-center gap-4">
+                            <div class="flex items-center gap-3">
+                                <div class="relative">
+                                    <i data-lucide="search" class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" style="color:var(--text-5)"></i>
+                                    <input id="search-input" type="text" placeholder="Buscar commit..."
+                                        class="search-input bg-transparent text-[11px] pl-8 pr-7 py-[5px] rounded-lg focus:outline-none"
+                                        style="border:1px solid var(--brd);color:var(--text-2);width:170px"
+                                        autocomplete="off">
+                                    <button id="search-clear" onclick="clearSearch()"
+                                        class="absolute right-2 top-1/2 -translate-y-1/2 transition-opacity hover:opacity-100"
+                                        style="display:none;color:var(--text-5);cursor:pointer;opacity:0.5"
+                                        title="Limpiar búsqueda">
+                                        <i data-lucide="x" class="w-3 h-3"></i>
+                                    </button>
+                                </div>
                                 <span class="text-[10px] font-mono font-medium" style="color:var(--text-5)"><span id="commit-count">0</span> commits</span>
                             </div>
                         </div>
@@ -522,11 +540,13 @@ Events:       Just the push event</code>
         let sseSource = null, currentView = 'activity', isDark = true, sidebarCollapsed = false;
         let currentPage = 1, totalPages = 1, totalCommits = 0;
         const PAGE_SIZE = 20;
+        let searchQuery = '', searchTimer = null;
         let visNetwork = null, visNodes = null, visEdges = null;
         const knownRepos = new Set(), knownAuthors = new Set();
 
         const $=id=>document.getElementById(id);
         const $body=$('commit-body'), $table=$('commit-table'), $empty=$('empty-state'), $count=$('commit-count');
+        const $searchInput=$('search-input'), $searchClear=$('search-clear');
         const $chatMsgs=$('chat-messages'), $chatForm=$('chat-form'), $chatInput=$('chat-input');
         const $clock=$('clock'), $sseDot=$('sse-dot'), $sseLabel=$('sse-label');
         const $pageTitle=$('page-title'), $liveBadge=$('live-badge'), $sidebar=$('sidebar');
@@ -656,8 +676,8 @@ Events:       Just the push event</code>
 
         function handleLiveCommit(item){
             totalCommits++;
-            if(currentPage===1){
-                // Prepend el nuevo commit con animación
+            if(currentPage===1 && !searchQuery){
+                // Prepend el nuevo commit con animación (solo si no hay búsqueda activa)
                 const row=createRow(item,true);
                 if($body.firstChild)$body.insertBefore(row,$body.firstChild);else $body.appendChild(row);
                 // Si la página excede el límite, eliminar la última fila
@@ -682,7 +702,9 @@ Events:       Just the push event</code>
 
         async function loadPage(page){
             try{
-                const r=await fetch(`${API}/api/commits?page=${page}&limit=${PAGE_SIZE}`);
+                const params=new URLSearchParams({page:String(page),limit:String(PAGE_SIZE)});
+                if(searchQuery) params.set('search',searchQuery);
+                const r=await fetch(`${API}/api/commits?${params}`);
                 if(!r.ok)return;
                 const data=await r.json();
                 currentPage=data.page;
@@ -703,6 +725,36 @@ Events:       Just the push event</code>
                 console.error('[Pagination] Error:',err);
             }
         }
+
+        // ── Search ────────────────────────────────────
+        function doSearch(query){
+            searchQuery=query.trim();
+            $searchClear.style.display=searchQuery?'block':'none';
+            loadPage(1);
+        }
+
+        window.clearSearch=function(){
+            $searchInput.value='';
+            doSearch('');
+            $searchInput.focus();
+        };
+
+        $searchInput.addEventListener('input',function(){
+            clearTimeout(searchTimer);
+            searchTimer=setTimeout(()=>doSearch(this.value),300);
+        });
+
+        // Atajos de teclado: Ctrl+K o / para buscar, Escape para limpiar
+        document.addEventListener('keydown',function(e){
+            if((e.ctrlKey&&e.key==='k')||(e.key==='/'&&!['INPUT','TEXTAREA'].includes(document.activeElement.tagName))){
+                e.preventDefault();
+                $searchInput.focus();
+            }
+            if(e.key==='Escape'&&document.activeElement===$searchInput){
+                window.clearSearch();
+                $searchInput.blur();
+            }
+        });
 
         // ── SSE ────────────────────────────────────
         function connectSSE(){
