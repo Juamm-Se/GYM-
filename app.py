@@ -29,16 +29,36 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
+# ═══════════════════════════════════════════════════════════════════
+#  CONFIGURACIÓN — RUTA DEL OBSIDIAN VAULT
+# ═══════════════════════════════════════════════════════════════════
+#  Para cambiar la bóveda que lee el sistema, modifica esta variable:
+#
+#    OPCION 1 — Ruta absoluta a tu bóveda de Obsidian:
+#      OBSIDIAN_VAULT_PATH = Path(r"C:\Users\sebas\Documents\MiVault")
+#
+#    OPCION 2 — Variable de entorno (recomendado para producción):
+#      OBSIDIAN_VAULT_PATH = Path(os.getenv("OBSIDIAN_VAULT_PATH", r"C:\Users\sebas\OneDrive - SENA\Escritorio\Practica_Obsidian"))
+#
+#    OPCION 3 — Carpeta local dentro del proyecto:
+#      OBSIDIAN_VAULT_PATH = BASE_DIR / "vault"
+#
+#  ⚠️ TODOS los endpoints (grafo, notas, chat, sugerencias) usan
+#     esta única variable. Cámbiala aquí y todo se actualiza.
+# ═══════════════════════════════════════════════════════════════════
+BASE_DIR             = Path(__file__).resolve().parent
+OBSIDIAN_VAULT_PATH  = Path(os.getenv(
+    "OBSIDIAN_VAULT_PATH",
+    r"C:\Users\sebas\OneDrive - SENA\Escritorio\Practica_Obsidian"
+))
+FRONTEND_PATH        = BASE_DIR / "index.html"
+
 # ═══════════════════════════════════════════════════
 #  CONFIGURACIÓN — API KEY DE GEMINI
 # ═══════════════════════════════════════════════════
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")   # ← Set via env var: GEMINI_API_KEY=...
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")   # ← Set via env var
 GEMINI_MODEL   = "gemini-2.5-flash"
 # ═══════════════════════════════════════════════════
-
-BASE_DIR      = Path(__file__).resolve().parent
-VAULT_DIR     = Path(r"C:\Users\sebas\OneDrive - SENA\Escritorio\Practica_Obsidian")
-FRONTEND_PATH = BASE_DIR / "index.html"
 
 app = FastAPI(title="Obsidian & Git Intelligence Center", version="5.0.0")
 
@@ -71,12 +91,37 @@ class CommitItem(BaseModel):
 
 
 # ──────────────────────────────────────────────
-# Almacén en memoria + Broadcast SSE
+# Almacén persistente + Broadcast SSE
 # ──────────────────────────────────────────────
 
+COMMIT_LOG_FILE = BASE_DIR / "commits.json"
 commit_log: list[CommitItem] = []
 MAX_LOG = 200
 sse_clients: list[asyncio.Queue] = []
+
+
+def _load_commits() -> None:
+    """Carga commits desde commits.json al iniciar (persistencia)."""
+    if COMMIT_LOG_FILE.exists():
+        try:
+            data = json.loads(COMMIT_LOG_FILE.read_text(encoding="utf-8"))
+            for item in data[:MAX_LOG]:
+                commit_log.append(CommitItem(**item))
+        except (json.JSONDecodeError, OSError, Exception):
+            pass  # Archivo corrupto o vacío, iniciar limpio
+
+
+def _save_commits() -> None:
+    """Guarda todos los commits a commits.json (persistencia)."""
+    try:
+        data = [item.model_dump() for item in commit_log]
+        COMMIT_LOG_FILE.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    except OSError:
+        pass  # No bloquear si falla la escritura
+
+
+# Cargar commits al importar el módulo
+_load_commits()
 
 
 def _broadcast(event_dict: dict) -> None:
@@ -139,7 +184,7 @@ def parse_vault() -> dict:
     node_map: dict[str, str] = {}  # nombre limpio lower → id
     node_id_counter = 0
 
-    if not VAULT_DIR.exists():
+    if not OBSIDIAN_VAULT_PATH.exists():
         return {"nodes": nodes, "edges": edges}
 
     def _clean_name(filename: str) -> str:
@@ -166,7 +211,7 @@ def parse_vault() -> dict:
         return node_id
 
     # Primera pasada: crear nodos por cada archivo .md
-    md_files = sorted(VAULT_DIR.rglob("*.md"))
+    md_files = sorted(OBSIDIAN_VAULT_PATH.rglob("*.md"))
     for filepath in md_files:
         clean = _clean_name(filepath.name)
         _get_or_create_node(clean)
@@ -213,13 +258,13 @@ def _get_vault_text_context(query: str, top_k: int = 5) -> str:
     Busca notas relevantes del Vault para usar como contexto
     en el chat de Gemini (Graph-RAG).
     """
-    if not VAULT_DIR.exists():
+    if not OBSIDIAN_VAULT_PATH.exists():
         return "No se encontró la carpeta 'vault/'."
 
     tokens = set(re.findall(r"\w+", query.lower()))
     scored_notes: list[tuple[int, str, str]] = []  # (score, title, excerpt)
 
-    for filepath in VAULT_DIR.rglob("*.md"):
+    for filepath in OBSIDIAN_VAULT_PATH.rglob("*.md"):
         try:
             content = filepath.read_text(encoding="utf-8")
         except (OSError, UnicodeDecodeError):
@@ -240,7 +285,7 @@ def _get_vault_text_context(query: str, top_k: int = 5) -> str:
     if not top_notes:
         # Si no hay coincidencias, devolver un resumen general
         all_titles = []
-        for filepath in VAULT_DIR.rglob("*.md"):
+        for filepath in OBSIDIAN_VAULT_PATH.rglob("*.md"):
             title = filepath.stem.replace("_", " ").replace("-", " ").strip()
             all_titles.append(f"- {title}")
         return (
@@ -316,8 +361,8 @@ async def health_check():
         "status": "ok",
         "version": "5.0.0",
         "mode": "obsidian-git-center",
-        "vault_dir": str(VAULT_DIR),
-        "vault_exists": VAULT_DIR.exists(),
+        "vault_dir": str(OBSIDIAN_VAULT_PATH),
+        "vault_exists": OBSIDIAN_VAULT_PATH.exists(),
         "graph_nodes": len(graph.get("nodes", [])),
         "graph_edges": len(graph.get("edges", [])),
         "commit_log_size": len(commit_log),
@@ -335,6 +380,29 @@ async def get_graph_data():
     return parse_vault()
 
 
+@app.get("/api/vault-suggestions")
+async def get_vault_suggestions():
+    """
+    Devuelve los nombres de las primeras 6 notas del Vault
+    para usar como chips de sugerencia dinámicos en el chat.
+    Todo depende de OBSIDIAN_VAULT_PATH.
+    """
+    if not OBSIDIAN_VAULT_PATH.exists():
+        return {"suggestions": [], "vault_name": "No encontrado"}
+
+    suggestions = []
+    for filepath in sorted(OBSIDIAN_VAULT_PATH.rglob("*.md"))[:6]:
+        clean = filepath.name
+        if clean.lower().endswith(".md"):
+            clean = clean[:-3]
+        clean = clean.replace("_", " ").replace("-", " ")
+        clean = re.sub(r"\s+", " ", clean).strip()
+        suggestions.append(clean)
+
+    vault_name = OBSIDIAN_VAULT_PATH.name
+    return {"suggestions": suggestions, "vault_name": vault_name}
+
+
 @app.get("/api/notes/{note_id}")
 async def get_note(note_id: str):
     """
@@ -342,7 +410,7 @@ async def get_note(note_id: str):
     Busca el archivo .md correspondiente usando el ID del nodo
     (que coincide con el label limpio del archivo).
     """
-    if not VAULT_DIR.exists():
+    if not OBSIDIAN_VAULT_PATH.exists():
         return JSONResponse({"error": "Vault no encontrado"}, status_code=404)
 
     # Buscar el nodo en parse_vault para obtener el label real
@@ -360,7 +428,7 @@ async def get_note(note_id: str):
     # Label "01 Ejercicios Pecho" → buscar archivo que matchee
     label_lower = label.lower()
 
-    for filepath in VAULT_DIR.rglob("*.md"):
+    for filepath in OBSIDIAN_VAULT_PATH.rglob("*.md"):
         # Reconstruir cómo parse_vault limpia el nombre
         clean = filepath.name
         if clean.lower().endswith(".md"):
@@ -381,6 +449,49 @@ async def get_note(note_id: str):
 @app.get("/api/activity")
 async def get_activity():
     return [item.model_dump() for item in reversed(commit_log)]
+
+
+@app.get("/api/commit/{commit_id}")
+async def get_commit_detail(commit_id: str):
+    """
+    Devuelve el detalle completo de un commit específico por su ID.
+    Incluye info expandida y sugerencias contextuales.
+    """
+    for item in commit_log:
+        if item.id == commit_id:
+            # Contar commits del mismo autor y repo
+            same_author = sum(1 for c in commit_log if c.author == item.author)
+            same_repo = sum(1 for c in commit_log if c.repo == item.repo)
+            # Descripción del impacto
+            impact_desc = {
+                "Alto": "Este commit introduce cambios significativos que pueden afectar la arquitectura, eliminar funcionalidad o requerir migración.",
+                "Medio": "Este commit modifica o mejora funcionalidad existente sin cambios arquitectónicos mayores.",
+                "Bajo": "Este commit realiza cambios menores: documentación, estilo, o ajustes menores.",
+            }
+            return {
+                **item.model_dump(),
+                "same_author_commits": same_author,
+                "same_repo_commits": same_repo,
+                "impact_description": impact_desc.get(item.impact, ""),
+                "time_ago": _time_ago(item.timestamp),
+            }
+    return JSONResponse({"error": f"Commit '{commit_id}' no encontrado"}, status_code=404)
+
+
+def _time_ago(ts: str) -> str:
+    """Devuelve un string legible del tipo 'hace 5 minutos'."""
+    try:
+        dt = datetime.fromisoformat(ts)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        diff = datetime.now(timezone.utc) - dt
+        seconds = int(diff.total_seconds())
+        if seconds < 60: return "hace un momento"
+        if seconds < 3600: return f"hace {seconds // 60} min"
+        if seconds < 86400: return f"hace {seconds // 3600} h"
+        return f"hace {seconds // 86400} días"
+    except Exception:
+        return ""
 
 
 # ── Webhook de GitHub — Commits reales ─────────
@@ -436,6 +547,7 @@ async def webhook_github(request: Request):
         if len(commit_log) > MAX_LOG:
             commit_log.pop(0)
         _broadcast(item.model_dump())
+        _save_commits()
         items_created.append(item.model_dump())
 
     return {

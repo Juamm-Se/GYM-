@@ -186,6 +186,25 @@
         .chip { display:inline-flex; align-items:center; gap:5px; padding:7px 15px; border-radius:20px; font-size:12px; font-weight:500; border:1px solid var(--brd); background:var(--bg-surface); color:var(--text-3); cursor:pointer; transition:all 0.18s; }
         .chip:hover { border-color:var(--acc); color:var(--acc-light); background:rgba(99,102,241,0.06); }
 
+        /* ── Commit Detail Overlay ────────────────── */
+        .commit-overlay { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); opacity: 0; pointer-events: none; transition: opacity 0.2s ease; }
+        .commit-overlay.open { opacity: 1; pointer-events: auto; }
+        .commit-detail-card { background: var(--bg-raised); border: 1px solid var(--brd); border-radius: 16px; width: 560px; max-width: 90vw; max-height: 85vh; overflow-y: auto; box-shadow: 0 25px 50px rgba(0,0,0,0.4); transform: translateY(10px) scale(0.97); transition: transform 0.25s cubic-bezier(0.16,1,0.3,1); }
+        .commit-overlay.open .commit-detail-card { transform: translateY(0) scale(1); }
+        .commit-detail-header { display: flex; align-items: flex-start; justify-content: space-between; padding: 20px 24px 16px; border-bottom: 1px solid var(--brd); }
+        .commit-detail-close { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--brd); background: var(--bg-surface); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; color: var(--text-4); flex-shrink: 0; }
+        .commit-detail-close:hover { border-color: var(--acc); color: var(--acc-light); background: rgba(99,102,241,0.06); }
+        .commit-detail-body { padding: 20px 24px 24px; }
+        .commit-detail-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 10px 0; border-bottom: 1px solid var(--brd-row); }
+        .commit-detail-row:last-child { border-bottom: none; }
+        .commit-detail-label { font-size: 11px; font-weight: 600; color: var(--text-4); text-transform: uppercase; letter-spacing: 0.05em; min-width: 100px; }
+        .commit-detail-value { font-size: 13px; color: var(--text-2); text-align: right; flex: 1; word-break: break-word; }
+        .commit-detail-message { background: var(--bg-surface); border: 1px solid var(--brd); border-radius: 10px; padding: 14px 16px; margin: 16px 0; font-size: 13px; line-height: 1.65; color: var(--text-2); font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+        .commit-detail-stats { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 16px; }
+        .commit-stat-card { background: var(--bg-surface); border: 1px solid var(--brd); border-radius: 10px; padding: 12px; text-align: center; }
+        .commit-stat-num { font-size: 20px; font-weight: 700; color: var(--text-1); }
+        .commit-stat-label { font-size: 10px; color: var(--text-4); margin-top: 2px; }
+
         /* ── Empty State ──────────────────────────── */
         .empty-state-icon { width:72px; height:72px; border-radius:20px; display:flex; align-items:center; justify-content:center; border:1px solid var(--brd); background:var(--bg-surface); margin-bottom:24px; }
 
@@ -421,7 +440,7 @@ Events:       Just the push event</code>
                         </div>
                         <div>
                             <h2 class="text-[16px] font-semibold tracking-[-0.02em]" style="color:var(--text-1)">Asistente IA</h2>
-                            <p class="text-[11px]" style="color:var(--text-4)">Obsidian Vault · Graph-RAG · Gemini 1.5 Flash</p>
+                            <p class="text-[11px]" style="color:var(--text-4)">Obsidian Vault · Graph-RAG · Gemini 2.5 Flash</p>
                         </div>
                     </div>
 
@@ -437,12 +456,7 @@ Events:       Just the push event</code>
                                     <p class="text-[13px] leading-[1.7]" style="color:var(--text-2)">Hola, soy tu asistente del Obsidian & Git Intelligence Center. Puedo buscar notas del Vault, explicar conexiones del knowledge graph y responder preguntas sobre tu proyecto.</p>
                                 </div>
                                 <div class="flex flex-wrap gap-2 mt-3" id="suggestion-chips">
-                                    <button onclick="sendFromChip('press de banca')" class="chip"><i data-lucide="dumbbell" class="w-3 h-3"></i> Press de banca</button>
-                                    <button onclick="sendFromChip('hipertrofia')" class="chip"><i data-lucide="trending-up" class="w-3 h-3"></i> Hipertrofia</button>
-                                    <button onclick="sendFromChip('rutina PPL')" class="chip"><i data-lucide="list-checks" class="w-3 h-3"></i> Rutina PPL</button>
-                                    <button onclick="sendFromChip('sobrecarga progresiva')" class="chip"><i data-lucide="zap" class="w-3 h-3"></i> Sobrecarga</button>
-                                    <button onclick="sendFromChip('nutrición y macros')" class="chip"><i data-lucide="apple" class="w-3 h-3"></i> Nutrición</button>
-                                    <button onclick="sendFromChip('recuperación y sueño')" class="chip"><i data-lucide="heart-pulse" class="w-3 h-3"></i> Recuperación</button>
+                                    <!-- Chips dinámicos cargados desde /api/vault-suggestions -->
                                 </div>
                             </div>
                         </div>
@@ -460,11 +474,29 @@ Events:       Just the push event</code>
                                 </button>
                             </form>
                         </div>
-                        <p class="text-[10px] mt-2.5 text-center font-light" style="color:var(--text-5)">obsidian vault · graph-rag · gemini 1.5 flash</p>
+                        <p class="text-[10px] mt-2.5 text-center font-light" style="color:var(--text-5)">obsidian vault · graph-rag · gemini 2.5 flash</p>
                     </div>
                 </div>
             </div>
 
+        </div>
+    </div>
+
+    <!-- Commit Detail Overlay -->
+    <div class="commit-overlay" id="commit-overlay" onclick="if(event.target===this)closeCommitDetail()">
+        <div class="commit-detail-card" id="commit-detail-card">
+            <div class="commit-detail-header">
+                <div>
+                    <p class="text-[11px] font-semibold uppercase tracking-wider" style="color:var(--text-4)">Detalle del Commit</p>
+                    <p class="text-[14px] font-bold mt-1" style="color:var(--text-1)" id="cd-title">—</p>
+                </div>
+                <button class="commit-detail-close" onclick="closeCommitDetail()" title="Cerrar">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <div class="commit-detail-body" id="cd-body">
+                <!-- Se llena dinámicamente -->
+            </div>
         </div>
     </div>
 
@@ -562,8 +594,10 @@ Events:       Just the push event</code>
 
         function createRow(item,animate){
             const tr=document.createElement('tr');
-            tr.className=`table-row group ${animate?'row-enter':''}`;
+            tr.className=`table-row group ${animate?'row-enter':''} cursor-pointer`;
             tr.dataset.author=item.author; tr.dataset.repo=item.repo; tr.dataset.impact=item.impact;
+            tr.dataset.commitId=item.id;
+            tr.onclick=()=>openCommitDetail(item.id);
             const grad=avatarGrad(item.author);
             const imp=item.impact.toLowerCase();
             const ledClass=imp==='alto'?'led-alto':imp==='medio'?'led-medio':'led-bajo';
@@ -896,6 +930,95 @@ Events:       Just the push event</code>
         $chatForm.addEventListener('submit',e=>{e.preventDefault();const m=$chatInput.value.trim();if(m)sendChat(m)});
         window.sendFromChip=function(t){$chatInput.value=t;sendChat(t)};
 
+        // ── Commit Detail Overlay ──────────────────
+        const $commitOverlay=$('commit-overlay'), $cdTitle=$('cd-title'), $cdBody=$('cd-body');
+
+        window.openCommitDetail=async function(commitId){
+            try{
+                const r=await fetch(`${API}/api/commit/${commitId}`);
+                if(!r.ok) return;
+                const d=await r.json();
+                $cdTitle.textContent = d.message.length > 60 ? d.message.slice(0,60)+'...' : d.message;
+                const imp = d.impact.toLowerCase();
+                const ledClass = imp==='alto'?'led-alto':imp==='medio'?'led-medio':'led-bajo';
+                const badgeClass = `badge-impact-${imp}`;
+                $cdBody.innerHTML = `
+                    <div class="commit-detail-message">${esc(d.message)}</div>
+                    <div class="commit-detail-row">
+                        <span class="commit-detail-label">Autor</span>
+                        <span class="commit-detail-value" style="display:flex;align-items:center;gap:8px;justify-content:flex-end">
+                            <div class="w-6 h-6 rounded-full ${avatarGrad(d.author)} flex items-center justify-center text-[8px] font-bold text-white">${esc(d.author_avatar)}</div>
+                            <strong style="color:var(--text-1)">${esc(d.author)}</strong>
+                        </span>
+                    </div>
+                    <div class="commit-detail-row">
+                        <span class="commit-detail-label">Repositorio</span>
+                        <span class="commit-detail-value" style="color:var(--acc-light);font-weight:600">${esc(d.repo)}</span>
+                    </div>
+                    <div class="commit-detail-row">
+                        <span class="commit-detail-label">Hora</span>
+                        <span class="commit-detail-value font-mono text-[12px]">${fmtDate(d.timestamp)} ${fmtTime(d.timestamp)} <span style="color:var(--text-5);margin-left:6px">${d.time_ago||''}</span></span>
+                    </div>
+                    <div class="commit-detail-row">
+                        <span class="commit-detail-label">Impacto</span>
+                        <span class="commit-detail-value" style="display:flex;align-items:center;gap:8px;justify-content:flex-end">
+                            <span class="led ${ledClass}"></span>
+                            <span class="${badgeClass}" style="padding:3px 10px;border-radius:6px;font-size:11px;font-weight:600">${esc(d.impact)}</span>
+                        </span>
+                    </div>
+                    ${d.impact_description ? `<div style="margin-top:4px;padding:10px 14px;border-radius:8px;background:var(--bg-surface);border:1px solid var(--brd);font-size:12px;color:var(--text-3);line-height:1.5">${esc(d.impact_description)}</div>` : ''}
+                    <div class="commit-detail-stats">
+                        <div class="commit-stat-card">
+                            <div class="commit-stat-num">${d.same_author_commits||0}</div>
+                            <div class="commit-stat-label">Commits del autor</div>
+                        </div>
+                        <div class="commit-stat-card">
+                            <div class="commit-stat-num">${d.same_repo_commits||0}</div>
+                            <div class="commit-stat-label">En este repo</div>
+                        </div>
+                        <div class="commit-stat-card">
+                            <div class="commit-stat-num" style="color:${imp==='alto'?'var(--impact-alto)':imp==='medio'?'var(--impact-medio)':'var(--impact-bajo)'}">${esc(d.impact)}</div>
+                            <div class="commit-stat-label">Nivel de impacto</div>
+                        </div>
+                    </div>
+                    <div style="margin-top:16px;padding:10px 14px;border-radius:8px;background:var(--bg-surface);border:1px solid var(--brd);font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text-4)">
+                        ID: ${d.id}
+                    </div>`;
+                lucide.createIcons({nodes:[$cdBody]});
+                $commitOverlay.classList.add('open');
+            }catch(err){
+                console.error('[CommitDetail] Error:', err);
+            }
+        };
+
+        window.closeCommitDetail=function(){
+            $commitOverlay.classList.remove('open');
+        };
+
+        // ── Dynamic Suggestion Chips ───────────────
+        async function loadSuggestionChips(){
+            try{
+                const r=await fetch(`${API}/api/vault-suggestions`);if(!r.ok)return;
+                const d=await r.json();
+                const container=$('suggestion-chips');
+                container.innerHTML='';
+                if(!d.suggestions.length){
+                    container.innerHTML='<span style="color:var(--text-5);font-size:12px">No hay notas en el Vault</span>';
+                    return;
+                }
+                d.suggestions.forEach(name => {
+                    const btn=document.createElement('button');
+                    btn.className='chip';
+                    btn.innerHTML=`<i data-lucide="file-text" class="w-3 h-3"></i> ${esc(name)}`;
+                    btn.onclick=()=>{ $chatInput.value=name; $chatInput.focus(); };
+                    container.appendChild(btn);
+                });
+                lucide.createIcons({nodes:[container]});
+            }catch(err){
+                console.error('[Chips] Error loading suggestions:', err);
+            }
+        }
+
         // ── Vault Status ───────────────────────────
         async function updateVaultStatus(){
             try{
@@ -905,7 +1028,7 @@ Events:       Just the push event</code>
         }
 
         // ── Init ───────────────────────────────────
-        applyTheme(); updateEmpty(); loadActivity().then(()=>{ connectSSE(); updateVaultStatus(); });
+        applyTheme(); updateEmpty(); loadActivity().then(()=>{ connectSSE(); updateVaultStatus(); loadSuggestionChips(); });
     })();
     </script>
 </body>
