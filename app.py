@@ -32,12 +32,12 @@ from pydantic import BaseModel, Field
 # ═══════════════════════════════════════════════════
 #  CONFIGURACIÓN — API KEY DE GEMINI
 # ═══════════════════════════════════════════════════
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")   # ← API KEY AQUÍ
-GEMINI_MODEL   = "gemini-1.5-flash"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")   # ← Set via env var: GEMINI_API_KEY=...
+GEMINI_MODEL   = "gemini-2.5-flash"
 # ═══════════════════════════════════════════════════
 
 BASE_DIR      = Path(__file__).resolve().parent
-VAULT_DIR     = BASE_DIR / "vault"
+VAULT_DIR     = Path(r"C:\Users\sebas\OneDrive - SENA\Escritorio\Practica_Obsidian")
 FRONTEND_PATH = BASE_DIR / "index.html"
 
 app = FastAPI(title="Obsidian & Git Intelligence Center", version="5.0.0")
@@ -186,7 +186,7 @@ def parse_vault() -> dict:
         # Buscar enlaces tipo [[Nota]] y [[Nota|Alias]]
         wikilinks = re.findall(r'\[\[([^\]#|]+)(?:[|#][^\]]*)?\]\]', content)
         for link in wikilinks:
-            link_clean = link.strip()
+            link_clean = _clean_name(link.strip())  # Normalizar igual que los archivos
             if not link_clean:
                 continue
             target_id = _get_or_create_node(link_clean)
@@ -263,9 +263,8 @@ async def _call_gemini(prompt: str, context: str) -> tuple[str, str]:
     if not GEMINI_API_KEY:
         return _local_response(prompt, context), "graph-local"
     try:
-        import google.generativeai as genai
-        genai.configure(api_key=GEMINI_API_KEY)
-        model = genai.GenerativeModel(GEMINI_MODEL)
+        from google import genai
+        client = genai.Client(api_key=GEMINI_API_KEY)
         system_prompt = (
             "Eres el asistente experto del Obsidian & Git Intelligence Center, "
             "un sistema de gestión de conocimiento basado en Obsidian Vault. "
@@ -275,8 +274,9 @@ async def _call_gemini(prompt: str, context: str) -> tuple[str, str]:
             "Si el contexto no es suficiente, sugieres términos alternativos basados en las notas del Vault.\n\n"
             f"Contexto de las notas del Vault:\n{context}"
         )
-        response = await model.generate_content_async(
-            f"{system_prompt}\n\nPregunta del usuario: {prompt}"
+        response = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=f"{system_prompt}\n\nPregunta del usuario: {prompt}",
         )
         return response.text, "gemini-api"
     except Exception as e:
