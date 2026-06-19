@@ -101,12 +101,15 @@ sse_clients: list[asyncio.Queue] = []
 
 
 def _load_commits() -> None:
-    """Carga commits desde commits.json al iniciar (persistencia)."""
+    """Carga commits desde commits.json al iniciar (persistencia).
+    Ordena por timestamp descendente para garantizar 'más recientes primero'.
+    """
     if COMMIT_LOG_FILE.exists():
         try:
             data = json.loads(COMMIT_LOG_FILE.read_text(encoding="utf-8"))
-            for item in data[:MAX_LOG]:
-                commit_log.append(CommitItem(**item))
+            items = [CommitItem(**item) for item in data[:MAX_LOG]]
+            items.sort(key=lambda x: x.timestamp, reverse=True)
+            commit_log.extend(items)
         except (json.JSONDecodeError, OSError, Exception):
             pass  # Archivo corrupto o vacío, iniciar limpio
 
@@ -448,7 +451,28 @@ async def get_note(note_id: str):
 
 @app.get("/api/activity")
 async def get_activity():
-    return [item.model_dump() for item in reversed(commit_log)]
+    return [item.model_dump() for item in commit_log]
+
+
+@app.get("/api/commits")
+async def get_commits(page: int = 1, limit: int = 20):
+    """
+    Devuelve commits paginados (más recientes primero).
+    Query params: ?page=1&limit=20
+    """
+    total = len(commit_log)
+    total_pages = max(1, (total + limit - 1) // limit)
+    page = max(1, min(page, total_pages))
+    start = (page - 1) * limit
+    end = start + limit
+    items = commit_log[start:end]
+    return {
+        "commits": [item.model_dump() for item in items],
+        "page": page,
+        "limit": limit,
+        "total": total,
+        "total_pages": total_pages,
+    }
 
 
 @app.get("/api/commit/{commit_id}")
@@ -543,9 +567,9 @@ async def webhook_github(request: Request):
             timestamp=timestamp,
             impact=impact,
         )
-        commit_log.append(item)
+        commit_log.insert(0, item)
         if len(commit_log) > MAX_LOG:
-            commit_log.pop(0)
+            commit_log.pop()
         _broadcast(item.model_dump())
         _save_commits()
         items_created.append(item.model_dump())

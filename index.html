@@ -215,6 +215,12 @@
         select { -webkit-appearance:none; -moz-appearance:none; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; padding-right:28px; }
 
         .dark input[type="date"]{color-scheme:dark} .light input[type="date"]{color-scheme:light}
+
+        /* ── Pagination ───────────────────────────── */
+        .page-btn { display:flex; align-items:center; gap:6px; padding:6px 14px; border-radius:8px; font-size:11px; font-weight:600; border:1px solid var(--brd); background:var(--bg-surface); color:var(--text-4); cursor:pointer; transition:all 0.18s; }
+        .page-btn:hover:not(:disabled) { border-color:var(--acc); color:var(--acc-light); background:rgba(99,102,241,0.06); }
+        .page-btn:disabled { opacity:0.35; cursor:not-allowed; }
+        .page-btn:active:not(:disabled) { transform:scale(0.97); }
     </style>
 </head>
 
@@ -341,7 +347,6 @@
                             </div>
                             <div class="flex items-center gap-4">
                                 <span class="text-[10px] font-mono font-medium" style="color:var(--text-5)"><span id="commit-count">0</span> commits</span>
-                                <button onclick="clearCommits()" class="text-[10px] px-2.5 py-1 rounded-md font-medium transition-colors hover:opacity-80" style="color:var(--text-5);border:1px solid var(--brd)">Limpiar</button>
                             </div>
                         </div>
                         <div class="flex-1 overflow-y-auto min-h-0" id="table-scroll">
@@ -373,6 +378,16 @@ Events:       Just the push event</code>
                                 </thead>
                                 <tbody id="commit-body"></tbody>
                             </table>
+                        </div>
+                        <!-- Pagination -->
+                        <div id="pagination" class="flex-shrink-0 items-center justify-between px-5 py-2.5 border-t" style="border-color:var(--brd);display:none">
+                            <button id="btn-prev" onclick="changePage(-1)" disabled class="page-btn">
+                                <i data-lucide="chevron-left" class="w-3.5 h-3.5"></i> Anterior
+                            </button>
+                            <span id="page-info" class="text-[11px] font-medium tabular-nums" style="color:var(--text-4)">Página 1 de 1</span>
+                            <button id="btn-next" onclick="changePage(1)" disabled class="page-btn">
+                                Siguiente <i data-lucide="chevron-right" class="w-3.5 h-3.5"></i>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -505,6 +520,8 @@ Events:       Just the push event</code>
         'use strict';
         const API = window.location.origin;
         let sseSource = null, currentView = 'activity', isDark = true, sidebarCollapsed = false;
+        let currentPage = 1, totalPages = 1, totalCommits = 0;
+        const PAGE_SIZE = 20;
         let visNetwork = null, visNodes = null, visEdges = null;
         const knownRepos = new Set(), knownAuthors = new Set();
 
@@ -586,10 +603,22 @@ Events:       Just the push event</code>
 
         // ── Commit Table ───────────────────────────
         function updateEmpty(){
-            const has=$body.children.length>0;
+            const has=totalCommits>0;
             $empty.classList.toggle('hidden',has);
             $table.classList.toggle('hidden',!has);
-            $count.textContent=$body.children.length;
+            $count.textContent=totalCommits;
+        }
+
+        function updatePagination(){
+            const $pagination=$('pagination');
+            const $prev=$('btn-prev');
+            const $next=$('btn-next');
+            const $info=$('page-info');
+            const hasPages=totalPages>0&&totalCommits>0;
+            $pagination.style.display=hasPages?'flex':'none';
+            $prev.disabled=currentPage<=1;
+            $next.disabled=currentPage>=totalPages;
+            $info.textContent=`Página ${currentPage} de ${totalPages}`;
         }
 
         function createRow(item,animate){
@@ -625,25 +654,60 @@ Events:       Just the push event</code>
             return tr;
         }
 
-        function prependCommit(item){
-            const row=createRow(item,true);
-            if($body.firstChild)$body.insertBefore(row,$body.firstChild);else $body.appendChild(row);
-            updateEmpty(); applyFilters();
-            setTimeout(()=>row.classList.remove('row-enter'),2500);
+        function handleLiveCommit(item){
+            totalCommits++;
+            if(currentPage===1){
+                // Prepend el nuevo commit con animación
+                const row=createRow(item,true);
+                if($body.firstChild)$body.insertBefore(row,$body.firstChild);else $body.appendChild(row);
+                // Si la página excede el límite, eliminar la última fila
+                while($body.children.length>PAGE_SIZE){
+                    $body.removeChild($body.lastChild);
+                }
+                applyFilters();
+                setTimeout(()=>row.classList.remove('row-enter'),2500);
+            }
+            // Siempre actualizar contadores y paginación
+            totalPages=Math.max(1,Math.ceil(totalCommits/PAGE_SIZE));
+            updateEmpty();
+            updatePagination();
         }
-        window.clearCommits=()=>{$body.innerHTML='';updateEmpty()};
 
-        async function loadActivity(){
+        window.changePage=function(delta){
+            const newPage=currentPage+delta;
+            if(newPage>=1&&newPage<=totalPages){
+                loadPage(newPage);
+            }
+        };
+
+        async function loadPage(page){
             try{
-                const r=await fetch(`${API}/api/activity`);if(!r.ok)return;const items=await r.json();
-                if(items.length){items.reverse().forEach(i=>$body.appendChild(createRow(i,false)));updateEmpty()}
-            }catch{}
+                const r=await fetch(`${API}/api/commits?page=${page}&limit=${PAGE_SIZE}`);
+                if(!r.ok)return;
+                const data=await r.json();
+                currentPage=data.page;
+                totalPages=data.total_pages;
+                totalCommits=data.total;
+                // Reconstruir la tabla con los commits de la página actual
+                $body.innerHTML='';
+                data.commits.forEach(item=>{
+                    $body.appendChild(createRow(item,false));
+                });
+                updateEmpty();
+                applyFilters();
+                updatePagination();
+                // Scroll al tope de la tabla
+                const $scroll=$('table-scroll');
+                if($scroll) $scroll.scrollTop=0;
+            }catch(err){
+                console.error('[Pagination] Error:',err);
+            }
         }
 
         // ── SSE ────────────────────────────────────
         function connectSSE(){
             sseStatus('wait'); sseSource=new EventSource(`${API}/api/stream`);
-            sseSource.addEventListener('activity',e=>{try{prependCommit(JSON.parse(e.data))}catch{}});
+            sseSource.addEventListener('activity',e=>{try{handleLiveCommit(JSON.parse(e.data))}catch{}});
             sseSource.addEventListener('ping',()=>{});
             sseSource.onopen=()=>sseStatus('on');
             sseSource.onerror=()=>{sseStatus('off');sseSource.close();setTimeout(()=>{if(!sseSource||sseSource.readyState===EventSource.CLOSED)connectSSE()},5000)};
@@ -1028,7 +1092,7 @@ Events:       Just the push event</code>
         }
 
         // ── Init ───────────────────────────────────
-        applyTheme(); updateEmpty(); loadActivity().then(()=>{ connectSSE(); updateVaultStatus(); loadSuggestionChips(); });
+        applyTheme(); updateEmpty(); loadPage(1).then(()=>{ connectSSE(); updateVaultStatus(); loadSuggestionChips(); });
     })();
     </script>
 </body>
