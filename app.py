@@ -500,6 +500,43 @@ async def get_commits(page: int = 1, limit: int = 20, search: str = ""):
     }
 
 
+@app.get("/api/developers")
+async def get_developers():
+    """
+    Agrupa commits por autor y devuelve estadísticas en tiempo real:
+    total de commits, repos activos, última actividad.
+    """
+    from collections import defaultdict
+
+    dev_map: dict[str, dict] = defaultdict(lambda: {
+        "total_commits": 0,
+        "repos": set(),
+        "last_timestamp": "",
+        "avatar": "",
+    })
+
+    for c in commit_log:
+        entry = dev_map[c.author]
+        entry["total_commits"] += 1
+        entry["repos"].add(c.repo)
+        if c.timestamp > entry["last_timestamp"]:
+            entry["last_timestamp"] = c.timestamp
+        entry["avatar"] = c.author_avatar
+
+    developers = []
+    for name, data in sorted(dev_map.items(), key=lambda x: x[1]["total_commits"], reverse=True):
+        developers.append({
+            "name": name,
+            "avatar": data["avatar"],
+            "total_commits": data["total_commits"],
+            "repos": sorted(data["repos"]),
+            "last_activity": _time_ago(data["last_timestamp"]) if data["last_timestamp"] else "—",
+            "last_timestamp": data["last_timestamp"],
+        })
+
+    return {"developers": developers, "total": len(developers)}
+
+
 @app.get("/api/metrics")
 async def get_metrics():
     """

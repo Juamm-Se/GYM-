@@ -276,6 +276,9 @@
             <button onclick="navigate('chat')" id="nav-chat" class="nav-item" title="Asistente IA">
                 <i data-lucide="sparkles" class="w-[18px] h-[18px] flex-shrink-0"></i><span class="nav-label truncate">Asistente IA</span>
             </button>
+            <button onclick="navigate('team')" id="nav-team" class="nav-item" title="Equipo">
+                <i data-lucide="users" class="w-[18px] h-[18px] flex-shrink-0"></i><span class="nav-label truncate">Equipo</span>
+            </button>
 
             <div class="my-4 mx-5" style="border-top:1px solid var(--brd)"></div>
             <div class="px-5 mb-2"><p class="section-label text-[9px] uppercase tracking-[0.12em] font-semibold" style="color:var(--text-5)">Sistema</p></div>
@@ -620,6 +623,38 @@ Events:       Just the push event</code>
                 </div>
             </div>
 
+            <!-- ═══════════════════════════════════════
+                 VISTA: EQUIPO (Desarrolladores)
+                 ═══════════════════════════════════════ -->
+            <div id="view-team" class="absolute inset-0 hidden overflow-y-auto">
+                <div class="px-7 py-6 max-w-4xl mx-auto">
+                    <!-- Header -->
+                    <div class="flex items-center gap-3 pb-5 flex-shrink-0">
+                        <div class="w-11 h-11 rounded-xl flex items-center justify-center" style="background:linear-gradient(135deg,rgba(99,102,241,0.12),rgba(139,92,246,0.12))">
+                            <i data-lucide="users" class="w-[22px] h-[22px]" style="color:var(--acc-light)"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-[16px] font-semibold tracking-[-0.02em]" style="color:var(--text-1)">Equipo</h2>
+                            <p class="text-[11px]" style="color:var(--text-4)">Desarrolladores activos · Estadísticas en tiempo real</p>
+                        </div>
+                    </div>
+
+                    <!-- Developer Grid -->
+                    <div id="team-grid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- Se llena dinámicamente -->
+                    </div>
+
+                    <!-- Empty State -->
+                    <div id="team-empty" class="flex flex-col items-center justify-center py-24 text-center">
+                        <div class="empty-state-icon mb-6">
+                            <i data-lucide="users" class="w-8 h-8" style="color:var(--text-5)"></i>
+                        </div>
+                        <p class="text-[16px] font-semibold mb-2" style="color:var(--text-2)">No se han detectado desarrolladores activos</p>
+                        <p class="text-[13px] max-w-md leading-relaxed" style="color:var(--text-4)">Cuando los miembros del equipo hagan <code class="font-mono text-[12px] px-1.5 py-0.5 rounded" style="background:var(--bg-surface);color:var(--acc-light)">git push</code>, sus perfiles aparecerán aquí automáticamente.</p>
+                    </div>
+                </div>
+            </div>
+
         </div>
     </div>
 
@@ -688,17 +723,18 @@ Events:       Just the push event</code>
         }
 
         // ── Navigation ─────────────────────────────
-        const viewTitles={activity:'Actividad en Vivo',graph:'Grafo de Obsidian',chat:'Asistente IA'};
+        const viewTitles={activity:'Actividad en Vivo',graph:'Grafo de Obsidian',chat:'Asistente IA',team:'Equipo'};
         window.navigate=function(v){
             currentView=v;
             document.querySelectorAll('.nav-item').forEach(b=>b.classList.remove('active'));
             const nb=$(`nav-${v}`); if(nb)nb.classList.add('active');
             $pageTitle.textContent=viewTitles[v]||'';
             $liveBadge.style.display=v==='activity'?'flex':'none';
-            ['activity','graph','chat'].forEach(x=>{const el=$(`view-${x}`);if(el)el.classList.toggle('hidden',x!==v)});
+            ['activity','graph','chat','team'].forEach(x=>{const el=$(`view-${x}`);if(el)el.classList.toggle('hidden',x!==v)});
             // Esperar a que el navegador calcule el layout antes de dibujar el grafo
             if(v==='graph') requestAnimationFrame(()=>setTimeout(loadGraph, 60));
             if(v==='chat') setTimeout(()=>$chatInput.focus(),120);
+            if(v==='team') fetchDevelopers();
         };
 
         // ── Filters ────────────────────────────────
@@ -800,8 +836,9 @@ Events:       Just the push event</code>
             totalPages=Math.max(1,Math.ceil(totalCommits/PAGE_SIZE));
             updateEmpty();
             updatePagination();
-            // Actualizar métricas en vivo
+            // Actualizar métricas y equipo en vivo
             fetchMetrics();
+            if(currentView==='team') fetchDevelopers();
         }
 
         window.changePage=function(delta){
@@ -919,6 +956,47 @@ Events:       Just the push event</code>
                 animateValue($('count-bajo'),d.impact.bajo,400);
             }catch(err){
                 console.error('[Metrics] Error:',err);
+            }
+        }
+
+        // ── Team / Developers ─────────────────────────
+        async function fetchDevelopers(){
+            try{
+                const r=await fetch(`${API}/api/developers`);
+                if(!r.ok)return;
+                const d=await r.json();
+                const $grid=$('team-grid');
+                const $empty=$('team-empty');
+
+                if(!d.developers.length){
+                    $grid.innerHTML='';
+                    $empty.style.display='flex';
+                    return;
+                }
+                $empty.style.display='none';
+
+                $grid.innerHTML=d.developers.map(dev=>{
+                    const grad=avatarGrad(dev.name);
+                    const repoBadges=dev.repos.map(r=>`<span class="inline-flex items-center gap-1 text-[10px] px-2 py-[2px] rounded-md font-medium" style="background:var(--bg-surface);color:var(--text-4);border:1px solid var(--brd)"><i data-lucide="git-branch" class="w-2.5 h-2.5"></i>${esc(r)}</span>`).join('');
+                    return `
+                    <div class="metric-card" style="padding:20px">
+                        <div class="flex items-center gap-3 mb-4">
+                            <div class="w-10 h-10 rounded-full ${grad} flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">${esc(dev.avatar)}</div>
+                            <div class="min-w-0 flex-1">
+                                <div class="text-[14px] font-semibold truncate" style="color:var(--text-1)">${esc(dev.name)}</div>
+                                <div class="text-[10px]" style="color:var(--text-5)">Última actividad: ${esc(dev.last_activity)}</div>
+                            </div>
+                            <div class="px-2.5 py-1 rounded-lg text-[11px] font-bold" style="background:rgba(99,102,241,0.10);color:var(--acc-light);border:1px solid rgba(99,102,241,0.15)">${dev.total_commits} commits</div>
+                        </div>
+                        <div class="flex items-center gap-1.5 flex-wrap">
+                            <span class="text-[9px] uppercase tracking-wider font-semibold mr-1" style="color:var(--text-5)">Repos:</span>
+                            ${repoBadges||'<span class="text-[10px]" style="color:var(--text-5)">—</span>'}
+                        </div>
+                    </div>`;
+                }).join('');
+                lucide.createIcons({nodes:[$grid]});
+            }catch(err){
+                console.error('[Team] Error:',err);
             }
         }
 
@@ -1289,20 +1367,6 @@ Events:       Just the push event</code>
                         </span>
                     </div>
                     ${d.impact_description ? `<div style="margin-top:4px;padding:10px 14px;border-radius:8px;background:var(--bg-surface);border:1px solid var(--brd);font-size:12px;color:var(--text-3);line-height:1.5">${esc(d.impact_description)}</div>` : ''}
-                    <div class="commit-detail-stats">
-                        <div class="commit-stat-card">
-                            <div class="commit-stat-num">${d.same_author_commits||0}</div>
-                            <div class="commit-stat-label">Commits del autor</div>
-                        </div>
-                        <div class="commit-stat-card">
-                            <div class="commit-stat-num">${d.same_repo_commits||0}</div>
-                            <div class="commit-stat-label">En este repo</div>
-                        </div>
-                        <div class="commit-stat-card">
-                            <div class="commit-stat-num" style="color:${imp==='alto'?'var(--impact-alto)':imp==='medio'?'var(--impact-medio)':'var(--impact-bajo)'}">${esc(d.impact)}</div>
-                            <div class="commit-stat-label">Nivel de impacto</div>
-                        </div>
-                    </div>
                     <div style="margin-top:16px;padding:10px 14px;border-radius:8px;background:var(--bg-surface);border:1px solid var(--brd);font-size:11px;font-family:'JetBrains Mono',monospace;color:var(--text-4)">
                         ID: ${d.id}
                     </div>`;
