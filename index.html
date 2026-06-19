@@ -216,6 +216,17 @@
 
         .dark input[type="date"]{color-scheme:dark} .light input[type="date"]{color-scheme:light}
 
+        /* ── Metric Cards ──────────────────────────── */
+        .metric-card { background:var(--bg-raised); border:1px solid var(--brd); border-radius:12px; padding:14px 16px; box-shadow:var(--shadow-card); transition:border-color 0.2s, box-shadow 0.2s; }
+        .metric-card:hover { border-color:var(--brd-light); }
+        .metric-icon { width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+        .metric-label { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-5); }
+        .metric-value { font-size:26px; font-weight:700; color:var(--text-1); letter-spacing:-0.03em; line-height:1; margin-top:4px; }
+        .metric-sub { font-size:10px; color:var(--text-4); margin-top:6px; }
+        .metric-sub strong { color:var(--text-3); font-weight:600; }
+        @keyframes metric-in { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+        .metric-enter { animation: metric-in 0.4s cubic-bezier(0.16,1,0.3,1) forwards; }
+
         /* ── Search ─────────────────────────────────── */
         .search-input { transition: border-color 0.2s, box-shadow 0.2s, width 0.25s; }
         .search-input:focus { border-color: rgba(99,102,241,0.40)!important; box-shadow: 0 0 0 2px rgba(99,102,241,0.08); width: 220px!important; }
@@ -313,6 +324,97 @@
                  VISTA: ACTIVIDAD EN VIVO (Commits)
                  ═══════════════════════════════════════ -->
             <div id="view-activity" class="absolute inset-0 flex flex-col overflow-hidden">
+                <!-- Métricas -->
+                <div class="flex-shrink-0 px-7 pt-5 pb-1">
+                    <div class="grid grid-cols-5 gap-3" id="metrics-grid">
+                        <!-- Total Commits -->
+                        <div class="metric-card metric-enter" style="animation-delay:0ms">
+                            <div class="flex items-center gap-2 mb-2">
+                                <div class="metric-icon" style="background:rgba(99,102,241,0.10)">
+                                    <i data-lucide="git-commit-horizontal" class="w-4 h-4" style="color:var(--acc-light)"></i>
+                                </div>
+                                <span class="metric-label">Total Commits</span>
+                            </div>
+                            <div class="metric-value" id="m-total">0</div>
+                            <div class="metric-sub">semana: <strong id="m-week">0</strong> · último: <strong id="m-last">—</strong></div>
+                        </div>
+                        <!-- Commits Hoy -->
+                        <div class="metric-card metric-enter" style="animation-delay:60ms">
+                            <div class="flex items-center gap-2 mb-2">
+                                <div class="metric-icon" style="background:rgba(34,197,94,0.10)">
+                                    <i data-lucide="zap" class="w-4 h-4" style="color:var(--live)"></i>
+                                </div>
+                                <span class="metric-label">Hoy</span>
+                            </div>
+                            <div class="metric-value" id="m-today">0</div>
+                            <div class="metric-sub">racha: <strong id="m-streak">0</strong> días</div>
+                        </div>
+                        <!-- Autor Top -->
+                        <div class="metric-card metric-enter" style="animation-delay:120ms">
+                            <div class="flex items-center gap-2 mb-2">
+                                <div class="metric-icon" style="background:rgba(139,92,246,0.10)">
+                                    <i data-lucide="crown" class="w-4 h-4" style="color:#a78bfa"></i>
+                                </div>
+                                <span class="metric-label">Autor Top</span>
+                            </div>
+                            <div class="flex items-center gap-2.5 mt-1">
+                                <div class="w-8 h-8 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0" id="m-author-avatar" style="background:linear-gradient(135deg,#6366f1,#8b5cf6)">—</div>
+                                <div class="min-w-0">
+                                    <div class="text-[13px] font-semibold truncate" style="color:var(--text-1)" id="m-author-name">—</div>
+                                    <div class="text-[9px]" style="color:var(--text-5)"><span id="m-author-count">0</span> commits</div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Repo Top -->
+                        <div class="metric-card metric-enter" style="animation-delay:180ms">
+                            <div class="flex items-center gap-2 mb-2">
+                                <div class="metric-icon" style="background:rgba(59,130,246,0.10)">
+                                    <i data-lucide="folder-git-2" class="w-4 h-4" style="color:#60a5fa"></i>
+                                </div>
+                                <span class="metric-label">Repo Top</span>
+                            </div>
+                            <div class="flex items-center gap-2 mt-1">
+                                <i data-lucide="git-branch" class="w-4 h-4 flex-shrink-0" style="color:var(--acc-light)"></i>
+                                <div class="min-w-0">
+                                    <div class="text-[13px] font-semibold truncate" style="color:var(--text-1)" id="m-repo-name">—</div>
+                                    <div class="text-[9px]" style="color:var(--text-5)"><span id="m-repo-count">0</span> commits</div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Impacto -->
+                        <div class="metric-card metric-enter" style="animation-delay:240ms">
+                            <div class="flex items-center gap-2 mb-2">
+                                <div class="metric-icon" style="background:rgba(251,191,36,0.10)">
+                                    <i data-lucide="shield-check" class="w-4 h-4" style="color:#fbbf24"></i>
+                                </div>
+                                <span class="metric-label">Impacto</span>
+                            </div>
+                            <div class="flex flex-col gap-[6px] mt-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[9px] font-bold w-9" style="color:var(--impact-alto)">Alto</span>
+                                    <div class="flex-1 h-[5px] rounded-full overflow-hidden" style="background:var(--bg-surface)">
+                                        <div class="h-full rounded-full transition-all duration-700" style="background:var(--impact-alto);width:0%" id="bar-alto"></div>
+                                    </div>
+                                    <span class="text-[9px] font-mono w-4 text-right" style="color:var(--text-5)" id="count-alto">0</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[9px] font-bold w-9" style="color:var(--impact-medio)">Medio</span>
+                                    <div class="flex-1 h-[5px] rounded-full overflow-hidden" style="background:var(--bg-surface)">
+                                        <div class="h-full rounded-full transition-all duration-700" style="background:var(--impact-medio);width:0%" id="bar-medio"></div>
+                                    </div>
+                                    <span class="text-[9px] font-mono w-4 text-right" style="color:var(--text-5)" id="count-medio">0</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[9px] font-bold w-9" style="color:var(--impact-bajo)">Bajo</span>
+                                    <div class="flex-1 h-[5px] rounded-full overflow-hidden" style="background:var(--bg-surface)">
+                                        <div class="h-full rounded-full transition-all duration-700" style="background:var(--impact-bajo);width:0%" id="bar-bajo"></div>
+                                    </div>
+                                    <span class="text-[9px] font-mono w-4 text-right" style="color:var(--text-5)" id="count-bajo">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                 <!-- Filtros -->
                 <div class="flex-shrink-0 px-7 pt-5 pb-3">
                     <div class="grid grid-cols-3 gap-3">
@@ -691,6 +793,8 @@ Events:       Just the push event</code>
             totalPages=Math.max(1,Math.ceil(totalCommits/PAGE_SIZE));
             updateEmpty();
             updatePagination();
+            // Actualizar métricas en vivo
+            fetchMetrics();
         }
 
         window.changePage=function(delta){
@@ -755,6 +859,51 @@ Events:       Just the push event</code>
                 $searchInput.blur();
             }
         });
+
+        // ── Metrics Dashboard ─────────────────────────
+        function animateValue(el,end,duration=600){
+            const start=parseInt(el.textContent)||0;
+            if(start===end){el.textContent=end;return}
+            const range=end-start;
+            const t0=performance.now();
+            function tick(now){
+                const p=Math.min((now-t0)/duration,1);
+                const eased=1-Math.pow(1-p,3);
+                el.textContent=Math.round(start+range*eased);
+                if(p<1)requestAnimationFrame(tick);
+            }
+            requestAnimationFrame(tick);
+        }
+
+        async function fetchMetrics(){
+            try{
+                const r=await fetch(`${API}/api/metrics`);
+                if(!r.ok)return;
+                const d=await r.json();
+                animateValue($('m-total'),d.total);
+                animateValue($('m-today'),d.commits_today);
+                animateValue($('m-week'),d.commits_week);
+                $('m-streak').textContent=d.streak;
+                $('m-last').textContent=d.last_commit_ago;
+                // Autor top
+                $('m-author-name').textContent=d.top_author.name;
+                $('m-author-avatar').textContent=d.top_author.avatar;
+                $('m-author-count').textContent=d.top_author.count;
+                // Repo top
+                $('m-repo-name').textContent=d.top_repo.name;
+                $('m-repo-count').textContent=d.top_repo.count;
+                // Impacto
+                const total=d.total||1;
+                $('bar-alto').style.width=`${(d.impact.alto/total)*100}%`;
+                $('bar-medio').style.width=`${(d.impact.medio/total)*100}%`;
+                $('bar-bajo').style.width=`${(d.impact.bajo/total)*100}%`;
+                animateValue($('count-alto'),d.impact.alto,400);
+                animateValue($('count-medio'),d.impact.medio,400);
+                animateValue($('count-bajo'),d.impact.bajo,400);
+            }catch(err){
+                console.error('[Metrics] Error:',err);
+            }
+        }
 
         // ── SSE ────────────────────────────────────
         function connectSSE(){
@@ -1144,7 +1293,7 @@ Events:       Just the push event</code>
         }
 
         // ── Init ───────────────────────────────────
-        applyTheme(); updateEmpty(); loadPage(1).then(()=>{ connectSSE(); updateVaultStatus(); loadSuggestionChips(); });
+        applyTheme(); updateEmpty(); loadPage(1).then(()=>{ connectSSE(); updateVaultStatus(); loadSuggestionChips(); fetchMetrics(); });
     })();
     </script>
 </body>

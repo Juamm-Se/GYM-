@@ -486,6 +486,86 @@ async def get_commits(page: int = 1, limit: int = 20, search: str = ""):
     }
 
 
+@app.get("/api/metrics")
+async def get_metrics():
+    """
+    Devuelve métricas agregadas del commit log.
+    Total, hoy, semana, autor top, repo top, impacto, racha.
+    """
+    from collections import Counter
+    from datetime import timedelta
+
+    now = datetime.now(timezone.utc)
+    today = now.date()
+    week_ago = now - timedelta(days=7)
+
+    total = len(commit_log)
+    commits_today = 0
+    commits_week = 0
+    author_counter = Counter()
+    repo_counter = Counter()
+    impact_counter = Counter()
+    commit_dates: set = set()
+    last_commit_ts = None
+
+    for c in commit_log:
+        try:
+            dt = datetime.fromisoformat(c.timestamp)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+        except Exception:
+            continue
+
+        if dt.date() == today:
+            commits_today += 1
+        if dt >= week_ago:
+            commits_week += 1
+        commit_dates.add(dt.date())
+        if last_commit_ts is None or dt > last_commit_ts:
+            last_commit_ts = dt
+
+        author_counter[c.author] += 1
+        repo_counter[c.repo] += 1
+        impact_counter[c.impact] += 1
+
+    # Racha de días consecutivos con commits
+    streak = 0
+    if commit_dates:
+        check = today
+        if check not in commit_dates:
+            check -= timedelta(days=1)
+        while check in commit_dates:
+            streak += 1
+            check -= timedelta(days=1)
+
+    top_author = author_counter.most_common(1)[0] if author_counter else ("—", 0)
+    top_repo = repo_counter.most_common(1)[0] if repo_counter else ("—", 0)
+
+    return {
+        "total": total,
+        "commits_today": commits_today,
+        "commits_week": commits_week,
+        "streak": streak,
+        "top_author": {
+            "name": top_author[0],
+            "avatar": _avatar(top_author[0]),
+            "count": top_author[1],
+        },
+        "top_repo": {
+            "name": top_repo[0],
+            "count": top_repo[1],
+        },
+        "impact": {
+            "alto": impact_counter.get("Alto", 0),
+            "medio": impact_counter.get("Medio", 0),
+            "bajo": impact_counter.get("Bajo", 0),
+        },
+        "last_commit_ago": (
+            _time_ago(last_commit_ts.isoformat()) if last_commit_ts else "—"
+        ),
+    }
+
+
 @app.get("/api/commit/{commit_id}")
 async def get_commit_detail(commit_id: str):
     """
