@@ -1039,7 +1039,10 @@ Events:       Just the push event</code>
                 // Colores llamativos según tema — morado/neón en dark, azul profundo en light
                 const dark = document.documentElement.classList.contains('dark');
 
-                const nodeColor = dark ? {
+                // Paleta de colores por grupo de nodo
+                const isComponent = label => /\bcomponentes?\b/i.test(label);
+
+                const principalColor = dark ? {
                     background: '#818cf8',
                     border: '#a5b4fc',
                     highlight: { background: '#c4b5fd', border: '#e0e7ff' },
@@ -1051,40 +1054,62 @@ Events:       Just the push event</code>
                     hover: { background: '#4f46e5', border: '#818cf8' }
                 };
 
-                const edgeColor = dark ? {
-                    color: 'rgba(129,140,248,0.30)',
-                    highlight: 'rgba(167,139,250,0.6)',
-                    hover: 'rgba(167,139,250,0.5)'
+                const componentColor = dark ? {
+                    background: '#f59e0b',
+                    border: '#fbbf24',
+                    highlight: { background: '#fbbf24', border: '#fde68a' },
+                    hover: { background: '#f59e0b', border: '#fbbf24' }
                 } : {
-                    color: 'rgba(99,102,241,0.25)',
-                    highlight: 'rgba(79,70,229,0.5)',
-                    hover: 'rgba(79,70,229,0.4)'
+                    background: '#f59e0b',
+                    border: '#d97706',
+                    highlight: { background: '#d97706', border: '#b45309' },
+                    hover: { background: '#d97706', border: '#f59e0b' }
                 };
 
-                // Mapear nodos con colores y estilo Obsidian Graph View
-                visNodes = new vis.DataSet(data.nodes.map(n => ({
-                    id: n.id,
-                    label: n.label,
-                    color: nodeColor,
-                    font: {
-                        color: dark ? '#e4e4e7' : '#18181b',
-                        size: 12,
-                        face: 'Inter, system-ui, sans-serif',
-                        strokeWidth: dark ? 3 : 2,
-                        strokeColor: dark ? '#09090b' : '#ffffff'
-                    },
-                    shape: 'dot',
-                    size: 16,
-                    borderWidth: 2,
-                    shadow: { enabled: true, color: dark ? 'rgba(129,140,248,0.35)' : 'rgba(99,102,241,0.18)', size: 10 }
-                })));
+                const principalShadow = dark ? 'rgba(129,140,248,0.35)' : 'rgba(99,102,241,0.18)';
+                const componentShadow = dark ? 'rgba(245,158,11,0.35)' : 'rgba(245,158,11,0.20)';
+
+                const edgeColor = dark ? {
+                    color: 'rgba(129,140,248,0.22)',
+                    highlight: 'rgba(167,139,250,0.5)',
+                    hover: 'rgba(167,139,250,0.4)'
+                } : {
+                    color: 'rgba(99,102,241,0.18)',
+                    highlight: 'rgba(79,70,229,0.4)',
+                    hover: 'rgba(79,70,229,0.3)'
+                };
+
+                // Mapear nodos con colorización por grupo y jerarquía de tamaño
+                visNodes = new vis.DataSet(data.nodes.map(n => {
+                    const isComp = isComponent(n.label);
+                    return {
+                        id: n.id,
+                        label: n.label,
+                        color: isComp ? componentColor : principalColor,
+                        font: {
+                            color: dark ? '#e4e4e7' : '#18181b',
+                            size: isComp ? 11 : 12,
+                            face: 'Inter, system-ui, sans-serif',
+                            strokeWidth: dark ? 3 : 2,
+                            strokeColor: dark ? '#09090b' : '#ffffff'
+                        },
+                        shape: 'dot',
+                        size: isComp ? 18 : 25,
+                        borderWidth: isComp ? 2 : 2.5,
+                        shadow: {
+                            enabled: true,
+                            color: isComp ? componentShadow : principalShadow,
+                            size: isComp ? 8 : 12
+                        }
+                    };
+                }));
 
                 // Mapear edges con líneas finas tipo Obsidian
                 visEdges = new vis.DataSet(data.edges.map(e => ({
                     from: e.from,
                     to: e.to,
                     color: edgeColor,
-                    width: 1,
+                    width: 0.8,
                     smooth: { type: 'continuous', roundness: 0.2 },
                     arrows: { to: { enabled: false } }
                 })));
